@@ -34,6 +34,17 @@ public class KeywordDetector : MonoBehaviour
     [SerializeField] private KeywordMapping[] keywordMappings; // Array of keyword mappings
     [SerializeField] private KeyCode activationKey = KeyCode.F; // Key to trigger OCR
     [SerializeField] private Transform markersParent; // Parent transform for all markers
+    
+    // 마커 부모 객체를 자동으로 설정하는 메서드
+    private void InitializeMarkersParent()
+    {
+        // 마커 부모가 설정되어 있지 않으면 자신을 사용
+        if (markersParent == null)
+        {
+            markersParent = transform;
+            Debug.Log($"[KeywordDetector] Initialized markers parent to self: {markersParent.name}");
+        }
+    }
     [SerializeField] private bool processAllImagesAtStart = true; // Process all images at start
     
     private TesseractDriver _tesseractDriver;
@@ -44,9 +55,10 @@ public class KeywordDetector : MonoBehaviour
     // Cache for OCR results
     private Dictionary<RawImage, ImageOcrResult> _ocrResultsCache = new Dictionary<RawImage, ImageOcrResult>();
     
+    // Initialize the detector
     private void Start()
     {
-        // Initialize Tesseract
+        // Initialize the Tesseract driver
         _tesseractDriver = new TesseractDriver();
         string version = _tesseractDriver.CheckTessVersion();
         Debug.Log("Tesseract Version: " + version);
@@ -59,6 +71,16 @@ public class KeywordDetector : MonoBehaviour
         {
             markersParent = new GameObject("OCR Markers").transform;
             markersParent.SetParent(transform);
+        }
+        
+        // Initialize markers parent if not set
+        InitializeMarkersParent();
+        
+        // If set to process all images at start, do it after a short delay
+        if (processAllImagesAtStart)
+        {
+            Debug.Log("Processing all images at start...");
+            StartCoroutine(DelayedProcessAllImages());
         }
     }
     
@@ -470,7 +492,8 @@ public class KeywordDetector : MonoBehaviour
         Debug.Log($"[KeywordDetector] Visualizing keywords from cache for image: {cachedResult.image.name}");
         Debug.Log($"[KeywordDetector] Cache contains {cachedResult.detectedKeywordRects.Count} keyword entries");
         
-        // 더 이상 여기서 마커를 지우지 않음 - InteractableKeywordVisualizer에서 한 번만 호출
+        // Clear previous markers for this image only
+        // ClearMarkers();
         
         // 이미지별 키워드 매핑과 글로벌 키워드 매핑 합치기
         List<KeywordMapping> combinedMappings = new List<KeywordMapping>();
@@ -775,7 +798,25 @@ public class KeywordDetector : MonoBehaviour
             
             // Instantiate the marker at the calculated position
             GameObject marker = Instantiate(mapping.markerPrefab, worldPos, Quaternion.identity);
-            marker.transform.SetParent(markersParent); // 타겟 이미지가 아닌 markersParent에 설정
+            
+            // markersParent가 설정되어 있지 않으면 targetImage를 부모로 사용
+            Transform parent = markersParent;
+            if (parent == null && targetImage != null)
+            {
+                parent = targetImage.transform;
+            }
+            
+            // 부모 설정
+            if (parent != null)
+            {
+                marker.transform.SetParent(parent);
+                Debug.Log($"[KeywordDetector] Setting marker parent to: {parent.name}");
+            }
+            else
+            {
+                Debug.LogWarning("[KeywordDetector] No parent available for marker, leaving at root");
+            }
+            
             marker.name = $"Marker_{mapping.keyword}_{_activeMarkers.Count}";
             
             // Add to the active markers list
@@ -816,6 +857,7 @@ public class KeywordDetector : MonoBehaviour
     public void SetTargetImage(RawImage image)
     {
         targetImage = image;
+        Debug.Log($"[KeywordDetector] Target image set to {(image != null ? image.name : "null")}");
     }
     
     // Method to add a new keyword mapping at runtime (global mapping)

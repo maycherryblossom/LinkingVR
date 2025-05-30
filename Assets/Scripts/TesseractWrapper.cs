@@ -293,7 +293,7 @@ public class TesseractWrapper
         
         foreach (var word in _detectedWords)
         {
-            Debug.Log($"Comparing '{word.Text}' with '{keyword}': {word.Text.Equals(keyword, comparison)}");
+            // Debug.Log($"Comparing '{word.Text}' with '{keyword}': {word.Text.Equals(keyword, comparison)}");
             if (word.Text.Equals(keyword, comparison))
             {
                 Debug.Log($"MATCH FOUND: '{word.Text}' matches '{keyword}'");

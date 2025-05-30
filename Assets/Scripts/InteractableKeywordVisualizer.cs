@@ -230,7 +230,7 @@ public class InteractableKeywordVisualizer : MonoBehaviour
             _highlightObject.SetActive(true);
         }
         
-        Debug.Log($"Hover entered: {gameObject.name}");
+        // Debug.Log($"Hover entered: {gameObject.name}");
     }
     
     private void OnHoverExited(HoverExitEventArgs args)
@@ -241,7 +241,7 @@ public class InteractableKeywordVisualizer : MonoBehaviour
             _highlightObject.SetActive(false);
         }
         
-        Debug.Log($"Hover exited: {gameObject.name}");
+        // Debug.Log($"Hover exited: {gameObject.name}");
     }
     
     private void OnSelectEntered(SelectEnterEventArgs args)
@@ -307,10 +307,10 @@ public class InteractableKeywordVisualizer : MonoBehaviour
             
         Debug.Log($"[InteractableKeywordVisualizer] Activating keyword visualization for: {gameObject.name}");
         
-        // Clear any existing markers - 여기서 한 번만 호출
+        // Clear any existing markers
         keywordDetector.ClearAllMarkers();
         
-        // 먼저 모든 이미지에 대한 키워드 매핑 추가
+        // Process each visualization
         foreach (var visualization in visualizations)
         {
             if (visualization.targetImage == null || visualization.keywordMappings == null)
@@ -318,6 +318,9 @@ public class InteractableKeywordVisualizer : MonoBehaviour
                 Debug.LogWarning($"[InteractableKeywordVisualizer] Skipping invalid visualization: targetImage={visualization.targetImage}, keywordMappings={visualization.keywordMappings}");
                 continue;
             }
+            
+            // Set the target image for OCR
+            keywordDetector.SetTargetImage(visualization.targetImage);
             
             // 이미지별 키워드 매핑 초기화
             keywordDetector.ClearKeywordMappingsForImage(visualization.targetImage);
@@ -336,18 +339,6 @@ public class InteractableKeywordVisualizer : MonoBehaviour
                 keywordDetector.AddKeywordMappingForImage(visualization.targetImage, newMapping);
                 Debug.Log($"[InteractableKeywordVisualizer] Added keyword mapping for image {visualization.targetImage.name}: {mapping.keyword}, partialMatch: {mapping.partialMatch}");
             }
-        }
-        
-        // 그 다음 모든 이미지에 대해 OCR 처리 및 시각화 수행
-        foreach (var visualization in visualizations)
-        {
-            if (visualization.targetImage == null || visualization.keywordMappings == null)
-                continue;
-                
-            Debug.Log($"[InteractableKeywordVisualizer] Processing visualization for image: {visualization.targetImage.name}");
-            
-            // Set the target image for OCR
-            keywordDetector.SetTargetImage(visualization.targetImage);
             
             // Perform OCR and detect keywords for this image only
             if (forceOcrProcessing)
@@ -380,9 +371,12 @@ public class InteractableKeywordVisualizer : MonoBehaviour
         if (keywordDetector == null)
             return;
             
-        Debug.Log($"Deactivating keyword visualization for: {gameObject.name}");
+        Debug.Log($"[InteractableKeywordVisualizer] Deactivating keyword visualization for: {gameObject.name}");
         
-        // Clear all markers
+        // Clear all markers without clearing the cache or mappings
         keywordDetector.ClearAllMarkers();
+        
+        // 케이스나 매핑은 유지하면서 마커만 제거
+        // 이것을 통해 다시 활성화할 때도 정상작동하게 함
     }
 }
