@@ -20,6 +20,7 @@ public class InteractableKeywordVisualizer : MonoBehaviour
     [SerializeField] private Material highlightMaterial;
     [SerializeField] private float highlightAlpha = 0.3f;
     [SerializeField] private Color highlightColor = new Color(0.5f, 0.8f, 1f, 0.3f);
+    [SerializeField] private BezierCurveManager bezierCurveManager; // 베지어 곡선 관리자 참조
     
     private XRSimpleInteractable _interactable;
     private MeshRenderer _highlightRenderer;
@@ -251,8 +252,14 @@ public class InteractableKeywordVisualizer : MonoBehaviour
         
         if (_isVisualizationActive)
         {
+            if (bezierCurveManager != null)
+            {
+                bezierCurveManager.SetSourcePoint(transform);
+                Debug.Log($"[InteractableKeywordVisualizer] Set source point to: {transform.name}");
+            }
             // Activate visualization
             ActivateKeywordVisualization();
+
         }
         else
         {
@@ -265,9 +272,16 @@ public class InteractableKeywordVisualizer : MonoBehaviour
             {
                 _highlightObject.SetActive(isHovered);
             }
+            
+            // 베지어 곡선 관리자가 있으면 모든 곡선 제거
+            if (bezierCurveManager != null)
+            {
+                bezierCurveManager.ClearActiveCurves();
+                Debug.Log($"[InteractableKeywordVisualizer] Cleared all bezier curves for {gameObject.name}");
+            }
         }
         
-        Debug.Log($"Select entered: {gameObject.name}, Visualization active: {_isVisualizationActive}");
+        Debug.Log($"[InteractableKeywordVisualizer] Select entered: {gameObject.name}, Visualization active: {_isVisualizationActive}");
     }
     
     private void OnSelectExited(SelectExitEventArgs args)

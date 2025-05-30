@@ -34,6 +34,8 @@ public class KeywordDetector : MonoBehaviour
     [SerializeField] private KeywordMapping[] keywordMappings; // Array of keyword mappings
     [SerializeField] private KeyCode activationKey = KeyCode.F; // Key to trigger OCR
     [SerializeField] private Transform markersParent; // Parent transform for all markers
+    [SerializeField] private BezierCurveManager bezierCurveManager; // 베지어 곡선 관리자
+    [SerializeField] private bool showMarkers = true; // 마커 표시 여부 (디버깅용)
     
     // 마커 부모 객체를 자동으로 설정하는 메서드
     private void InitializeMarkersParent()
@@ -512,6 +514,9 @@ public class KeywordDetector : MonoBehaviour
             Debug.Log($"[KeywordDetector] Using {keywordMappings.Length} global mappings for visualization");
         }
         
+        // 키워드 위치를 저장할 리스트
+        List<Vector3> keywordWorldPositions = new List<Vector3>();
+        
         // For each keyword mapping, check if it exists in the cache
         foreach (var mapping in combinedMappings)
         {
@@ -525,8 +530,16 @@ public class KeywordDetector : MonoBehaviour
                 Debug.Log($"[KeywordDetector] Found {rects.Count} rectangles for keyword: {mapping.keyword}");
                 foreach (var rect in rects)
                 {
-                    Debug.Log($"[KeywordDetector] Creating marker for {mapping.keyword} at {rect}");
-                    CreateMarkerForKeyword(mapping, rect);
+                    // 키워드의 월드 좌표 계산
+                    Vector3 worldPos = ConvertTextureToWorldPosition(rect, cachedResult.image.rectTransform);
+                    keywordWorldPositions.Add(worldPos);
+                    
+                    // 마커 표시 옵션이 켜져 있으면 마커도 생성
+                    if (showMarkers)
+                    {
+                        Debug.Log($"[KeywordDetector] Creating marker for {mapping.keyword} at {rect}");
+                        CreateMarkerForKeyword(mapping, rect);
+                    }
                 }
             }
             else
@@ -535,7 +548,14 @@ public class KeywordDetector : MonoBehaviour
             }
         }
         
-        Debug.Log($"[KeywordDetector] Visualization complete. Created {_activeMarkers.Count} markers.");
+        // 베지어 곡선 관리자로 키워드 위치 전달
+        if (bezierCurveManager != null && keywordWorldPositions.Count > 0)
+        {
+            Debug.Log($"[KeywordDetector] Sending {keywordWorldPositions.Count} keyword positions to BezierCurveManager");
+            bezierCurveManager.CreateCurvesForKeywords(keywordWorldPositions);
+        }
+        
+        Debug.Log($"[KeywordDetector] Visualization complete. Created {_activeMarkers.Count} markers and {keywordWorldPositions.Count} bezier curves.");
     }
     
     private void PerformOcrOnImage()
