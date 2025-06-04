@@ -5516,12 +5516,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05abbec2f64855147bd82a881d20e917, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  targetImage: {fileID: 0}
-  keywordMappings: []
   activationKey: 102
   markersParent: {fileID: 0}
   bezierCurveManager: {fileID: 1021074454}
   showMarkers: 1
+  ocrScale: 0.5
   processAllImagesAtStart: 1
 --- !u!4 &500776687
 Transform:
@@ -8692,7 +8691,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   visualizations:
-  - targetImage: {fileID: 591211448}
+  - texture: {fileID: 2800000, guid: bdcf00412df5dde4f8a57ddf7f773c4c, type: 3}
     keywordMappings:
     - keyword: Pandemic
       markerPrefab: {fileID: 798714924}
@@ -8702,7 +8701,7 @@ MonoBehaviour:
       markerPrefab: {fileID: 798714924}
       highlightColor: {r: 0.9344351, g: 1, b: 0.41037738, a: 0}
       partialMatch: 0
-  - targetImage: {fileID: 376007395}
+  - texture: {fileID: 2800000, guid: bdcf00412df5dde4f8a57ddf7f773c4c, type: 3}
     keywordMappings:
     - keyword: effective
       markerPrefab: {fileID: 798714924}
@@ -8717,11 +8716,7 @@ MonoBehaviour:
   highlightAlpha: 0.5
   highlightColor: {r: 0.7316663, g: 1, b: 0, a: 0.1764706}
   bezierCurveManager: {fileID: 1021074454}
-  mappedTextures:
-  - {fileID: 2800000, guid: bdcf00412df5dde4f8a57ddf7f773c4c, type: 3}
-  - {fileID: 2800000, guid: bdcf00412df5dde4f8a57ddf7f773c4c, type: 3}
   displayManager: {fileID: 1548205995}
-  forceOcrProcessing: 0
 --- !u!114 &946573996
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11270,7 +11265,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   visualizations:
-  - targetImage: {fileID: 591211448}
+  - texture: {fileID: 2800000, guid: 88c1e953faf0c4b47a3bc4fb3e6cee0a, type: 3}
     keywordMappings:
     - keyword: CEO.
       markerPrefab: {fileID: 798714924}
@@ -11280,7 +11275,7 @@ MonoBehaviour:
       markerPrefab: {fileID: 798714924}
       highlightColor: {r: 0.9344351, g: 1, b: 0.41037738, a: 0}
       partialMatch: 0
-  - targetImage: {fileID: 376007395}
+  - texture: {fileID: 2800000, guid: 701759e26ba1b8e4e9e8fc321334d64d, type: 3}
     keywordMappings:
     - keyword: Family of Apps
       markerPrefab: {fileID: 798714924}
@@ -11295,9 +11290,7 @@ MonoBehaviour:
   highlightAlpha: 0.5
   highlightColor: {r: 0.7316663, g: 1, b: 0, a: 0.1764706}
   bezierCurveManager: {fileID: 1021074454}
-  mappedTextures: []
   displayManager: {fileID: 1548205995}
-  forceOcrProcessing: 0
 --- !u!114 &1150711514
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14833,8 +14826,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   displaySlots:
-  - {fileID: 1821419570}
   - {fileID: 591211448}
+  - {fileID: 376007395}
+  defaultPlaceholder: {fileID: 0}
 --- !u!4 &1548205996
 Transform:
   m_ObjectHideFlags: 0
@@ -17176,7 +17170,7 @@ GameObject:
   - component: {fileID: 1821419571}
   - component: {fileID: 1821419570}
   m_Layer: 5
-  m_Name: RawImage
+  m_Name: Chart
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -17221,7 +17215,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Texture: {fileID: 2800000, guid: 86dcf42a75d304b4785803979a446afb, type: 3}
+  m_Texture: {fileID: 2800000, guid: 82e3ce20a5bffc6488c5625e5bf96b09, type: 3}
   m_UVRect:
     serializedVersion: 2
     x: 0

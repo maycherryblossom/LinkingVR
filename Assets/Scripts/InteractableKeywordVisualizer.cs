@@ -8,7 +8,7 @@ using UnityEngine.UI;
 [System.Serializable]
 public class ImageKeywordVisualization
 {
-    public RawImage targetImage;
+    public Texture2D texture; 
     public KeywordMapping[] keywordMappings;
 }
 
@@ -21,14 +21,13 @@ public class InteractableKeywordVisualizer : MonoBehaviour
     [SerializeField] private float highlightAlpha = 0.3f;
     [SerializeField] private Color highlightColor = new Color(0.5f, 0.8f, 1f, 0.3f);
     [SerializeField] private BezierCurveManager bezierCurveManager; // 베지어 곡선 관리자 참조
-    
-    [SerializeField] private Texture2D[] mappedTextures;   // 이 콜라이더가 선택됐을 때 보여줄 이미지들
     [SerializeField] private DisplayImageManager displayManager;
 
     private XRSimpleInteractable _interactable;
     private MeshRenderer _highlightRenderer;
     private GameObject _highlightObject;
     private bool _isVisualizationActive = false;
+    private KeywordMapping[] globalMappings;
     
     private void Awake()
     {
@@ -56,38 +55,11 @@ public class InteractableKeywordVisualizer : MonoBehaviour
     
     private void Start()
     {
-        // 시작 시 모든 키워드 매핑을 KeywordDetector에 전달
-        if (keywordDetector != null && visualizations != null)
-        {
-            Debug.Log($"[InteractableKeywordVisualizer] Initializing keyword mappings for {visualizations.Length} visualizations");
-            
-            // 모든 시각화에 대한 키워드 매핑 추가
-            foreach (var visualization in visualizations)
-            {
-                if (visualization.targetImage != null && visualization.keywordMappings != null)
-                {
-                    // 이미지별 매핑 초기화
-                    keywordDetector.ClearKeywordMappingsForImage(visualization.targetImage);
-                    
-                    foreach (var mapping in visualization.keywordMappings)
-                    {
-                        if (mapping != null && !string.IsNullOrEmpty(mapping.keyword))
-                        {
-                            // 새로운 KeywordMapping 객체 생성하여 전달
-                            KeywordMapping newMapping = new KeywordMapping
-                            {
-                                keyword = mapping.keyword,
-                                markerPrefab = mapping.markerPrefab,
-                                highlightColor = mapping.highlightColor,
-                                partialMatch = mapping.partialMatch
-                            };
-                            keywordDetector.AddKeywordMappingForImage(visualization.targetImage, newMapping);
-                            Debug.Log($"[InteractableKeywordVisualizer] Added initial keyword mapping for image {visualization.targetImage.name}: {mapping.keyword}, partialMatch: {mapping.partialMatch}");
-                        }
-                    }
-                }
-            }
-        }
+        if (keywordDetector == null) return;
+
+        foreach (var v in visualizations)
+            if (v.texture != null)
+                keywordDetector.PreprocessTexture(v.texture, v.keywordMappings);
     }
     
     private void OnDestroy()
@@ -250,44 +222,31 @@ public class InteractableKeywordVisualizer : MonoBehaviour
     
     private void OnSelectEntered(SelectEnterEventArgs args)
     {
-        // Toggle visualization
-        _isVisualizationActive = !_isVisualizationActive;
-        
-        if (_isVisualizationActive)
-        {
-            if (displayManager)
-                displayManager.SetDisplayImages(mappedTextures);    
-                
-            if (bezierCurveManager != null)
-            {
-                bezierCurveManager.SetSourcePoint(transform);
-                Debug.Log($"[InteractableKeywordVisualizer] Set source point to: {transform.name}");
-            }
-            // Activate visualization
-            ActivateKeywordVisualization();
+        bool activate = !_isVisualizationActive;
+        _isVisualizationActive = activate;
+        if (bezierCurveManager) bezierCurveManager.SetSourcePoint(transform);
 
-        }
-        else
+        if (!activate)
         {
-            // Deactivate visualization
-            DeactivateKeywordVisualization();
-            
-            // Keep highlight visible if still being hovered
-            bool isHovered = _interactable.isHovered;
-            if (_highlightObject != null)
-            {
-                _highlightObject.SetActive(isHovered);
-            }
-            
-            // 베지어 곡선 관리자가 있으면 모든 곡선 제거
-            if (bezierCurveManager != null)
-            {
-                bezierCurveManager.ClearActiveCurves();
-                Debug.Log($"[InteractableKeywordVisualizer] Cleared all bezier curves for {gameObject.name}");
-            }
+            keywordDetector.ClearAllMarkers();
+            if (bezierCurveManager) bezierCurveManager.ClearActiveCurves();
+            return;
         }
-        
-        Debug.Log($"[InteractableKeywordVisualizer] Select entered: {gameObject.name}, Visualization active: {_isVisualizationActive}");
+
+        // ① 텍스처 배열 추려서 RawImage 로 표시
+        Texture2D[] texArray = System.Array.ConvertAll(
+            visualizations, v => v.texture);
+
+        RawImage[] rawImgs = displayManager.SetDisplayImages(texArray);
+
+        // ② Texture 기준으로 시각화
+        for (int i = 0; i < rawImgs.Length; ++i)
+        {
+            Texture2D tex = texArray[i];
+            RectTransform rect = rawImgs[i].rectTransform;
+
+            keywordDetector.VisualizeKeywordsForTexture(tex, rect);
+        }
     }
     
     private void OnSelectExited(SelectExitEventArgs args)
@@ -296,90 +255,72 @@ public class InteractableKeywordVisualizer : MonoBehaviour
         Debug.Log($"Select exited: {gameObject.name}");
     }
     
-    // Get all images used by this visualizer
-    public RawImage[] GetAllImages()
-    {
-        if (visualizations == null || visualizations.Length == 0)
-            return new RawImage[0];
+    // private void ActivateKeywordVisualization()
+    // {
+    //     if (keywordDetector == null)
+    //     {
+    //         Debug.LogError("[InteractableKeywordVisualizer] KeywordDetector is null. Cannot activate visualization.");
+    //         return;
+    //     }
             
-        List<RawImage> images = new List<RawImage>();
-        foreach (var visualization in visualizations)
-        {
-            if (visualization.targetImage != null)
-            {
-                images.Add(visualization.targetImage);
-            }
-        }
+    //     Debug.Log($"[InteractableKeywordVisualizer] Activating keyword visualization for: {gameObject.name}");
         
-        return images.ToArray();
-    }
-    
-    private void ActivateKeywordVisualization()
-    {
-        if (keywordDetector == null)
-        {
-            Debug.LogError("[InteractableKeywordVisualizer] KeywordDetector is null. Cannot activate visualization.");
-            return;
-        }
-            
-        Debug.Log($"[InteractableKeywordVisualizer] Activating keyword visualization for: {gameObject.name}");
+    //     keywordDetector.ClearAllMarkers();
         
-        keywordDetector.ClearAllMarkers();
-        
-        // Process each visualization
-        foreach (var visualization in visualizations)
-        {
-            if (visualization.targetImage == null || visualization.keywordMappings == null)
-            {
-                Debug.LogWarning($"[InteractableKeywordVisualizer] Skipping invalid visualization: targetImage={visualization.targetImage}, keywordMappings={visualization.keywordMappings}");
-                continue;
-            }
+    //     // Process each visualization
+    //     foreach (var visualization in visualizations)
+    //     {
+    //         if (visualization.targetImage == null || visualization.keywordMappings == null)
+    //         {
+    //             Debug.LogWarning($"[InteractableKeywordVisualizer] Skipping invalid visualization: targetImage={visualization.targetImage}, keywordMappings={visualization.keywordMappings}");
+    //             continue;
+    //         }
             
-            float imageProcessingStartTime = Time.realtimeSinceStartup;
+    //         float imageProcessingStartTime = Time.realtimeSinceStartup;
             
-            // Set the target image for OCR
-            float setTargetStartTime = Time.realtimeSinceStartup;
-            keywordDetector.SetTargetImage(visualization.targetImage);
-            float setTargetTime = (Time.realtimeSinceStartup - setTargetStartTime) * 1000f;
-            Debug.Log($"[TimeMeasurement] SetTargetImage for {visualization.targetImage.name} took {setTargetTime:F2} ms");
+    //         // Set the target image for OCR
+    //         float setTargetStartTime = Time.realtimeSinceStartup;
+    //         keywordDetector.SetTargetImage(visualization.targetImage);
+    //         float setTargetTime = (Time.realtimeSinceStartup - setTargetStartTime) * 1000f;
+    //         Debug.Log($"[TimeMeasurement] SetTargetImage for {visualization.targetImage.name} took {setTargetTime:F2} ms");
             
-            // 이미지별 키워드 매핑 초기화
-            float clearMappingsStartTime = Time.realtimeSinceStartup;
-            keywordDetector.ClearKeywordMappingsForImage(visualization.targetImage);
-            float clearMappingsTime = (Time.realtimeSinceStartup - clearMappingsStartTime) * 1000f;
-            Debug.Log($"[TimeMeasurement] ClearKeywordMappingsForImage for {visualization.targetImage.name} took {clearMappingsTime:F2} ms");
+    //         // 이미지별 키워드 매핑 초기화
+    //         float clearMappingsStartTime = Time.realtimeSinceStartup;
+    //         keywordDetector.ClearKeywordMappingsForImage(visualization.targetImage);
+    //         float clearMappingsTime = (Time.realtimeSinceStartup - clearMappingsStartTime) * 1000f;
+    //         Debug.Log($"[TimeMeasurement] ClearKeywordMappingsForImage for {visualization.targetImage.name} took {clearMappingsTime:F2} ms");
             
-            // 이미지별 키워드 매핑 추가
-            float addMappingsStartTime = Time.realtimeSinceStartup;
-            int mappingCount = 0;
-            foreach (var mapping in visualization.keywordMappings)
-            {
-                // 새로운 KeywordMapping 객체 생성하여 전달
-                KeywordMapping newMapping = new KeywordMapping
-                {
-                    keyword = mapping.keyword,
-                    markerPrefab = mapping.markerPrefab,
-                    highlightColor = mapping.highlightColor,
-                    partialMatch = mapping.partialMatch
-                };
-                keywordDetector.AddKeywordMappingForImage(visualization.targetImage, newMapping);
-                mappingCount++;
-            }
-            float addMappingsTime = (Time.realtimeSinceStartup - addMappingsStartTime) * 1000f;
-            Debug.Log($"[TimeMeasurement] Adding {mappingCount} keyword mappings for {visualization.targetImage.name} took {addMappingsTime:F2} ms");
+    //         // 이미지별 키워드 매핑 추가
+    //         float addMappingsStartTime = Time.realtimeSinceStartup;
+    //         int mappingCount = 0;
+    //         foreach (var mapping in visualization.keywordMappings)
+    //         {
+    //             // 새로운 KeywordMapping 객체 생성하여 전달
+    //             KeywordMapping newMapping = new KeywordMapping
+    //             {
+    //                 keyword = mapping.keyword,
+    //                 markerPrefab = mapping.markerPrefab,
+    //                 highlightColor = mapping.highlightColor,
+    //                 partialMatch = mapping.partialMatch
+    //             };
+    //             keywordDetector.AddKeywordMappingForImage(visualization.targetImage, newMapping);
+    //             mappingCount++;
+    //         }
+    //         float addMappingsTime = (Time.realtimeSinceStartup - addMappingsStartTime) * 1000f;
+    //         Debug.Log($"[TimeMeasurement] Adding {mappingCount} keyword mappings for {visualization.targetImage.name} took {addMappingsTime:F2} ms");
             
-            // Perform OCR and detect keywords for this image only
-            float ocrStartTime = Time.realtimeSinceStartup;
+    //         // Perform OCR and detect keywords for this image only
+    //         float ocrStartTime = Time.realtimeSinceStartup;
             
-            Debug.Log($"[InteractableKeywordVisualizer] Attempting to use cached OCR results for image: {visualization.targetImage.name}");
-            keywordDetector.PerformOCRDetection();
-            float ocrTime = (Time.realtimeSinceStartup - ocrStartTime) * 1000f;
-            Debug.Log($"[TimeMeasurement] OCR detection for {visualization.targetImage.name} took {ocrTime:F2} ms");
+    //         Debug.Log($"[InteractableKeywordVisualizer] Attempting to use cached OCR results for image: {visualization.targetImage.name}");
+    //         keywordDetector.PerformOCRDetection();
+    //         float ocrTime = (Time.realtimeSinceStartup - ocrStartTime) * 1000f;
+    //         Debug.Log($"[TimeMeasurement] OCR detection for {visualization.targetImage.name} took {ocrTime:F2} ms");
             
-            float totalImageTime = (Time.realtimeSinceStartup - imageProcessingStartTime) * 1000f;
-            Debug.Log($"[TimeMeasurement] Total processing for image {visualization.targetImage.name} took {totalImageTime:F2} ms with {visualization.keywordMappings.Length} keywords");
-        }
-    }
+    //         float totalImageTime = (Time.realtimeSinceStartup - imageProcessingStartTime) * 1000f;
+    //         Debug.Log($"[TimeMeasurement] Total processing for image {visualization.targetImage.name} took {totalImageTime:F2} ms with {visualization.keywordMappings.Length} keywords");
+    //     }
+    // }
     
     // Optional coroutine to add delay between processing images
     private IEnumerator WaitForProcessing()
