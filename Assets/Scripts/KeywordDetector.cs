@@ -28,6 +28,7 @@ public class KeywordDetector : MonoBehaviour
         public List<KeywordMapping> keywordMappings = new List<KeywordMapping>(); // 이미지별 키워드 매핑 저장
         public int textureWidth; // 텍스처 너비 캐시
         public int textureHeight; // 텍스처 높이 캐시
+        public Dictionary<string, List<Rect>> wordIndex;
     }
     
     [SerializeField] private RawImage targetImage; // The UI RawImage to perform OCR on
@@ -36,6 +37,7 @@ public class KeywordDetector : MonoBehaviour
     [SerializeField] private Transform markersParent; // Parent transform for all markers
     [SerializeField] private BezierCurveManager bezierCurveManager; // 베지어 곡선 관리자
     [SerializeField] private bool showMarkers = true; // 마커 표시 여부 (디버깅용)
+    [SerializeField, Range(0.25f, 1f)]private float ocrScale = 0.5f;   // 1.0 = 원본, 0.5 = 절반 해상도   
     
     // 마커 부모 객체를 자동으로 설정하는 메서드
     private void InitializeMarkersParent()
@@ -164,15 +166,6 @@ public class KeywordDetector : MonoBehaviour
         Debug.Log($"[KeywordDetector] Final cache status: {_ocrResultsCache.Count} images cached");
     }
     
-    private void Update()
-    {
-        // Check if OCR is ready and activation key is pressed
-        if (_isOcrReady && Input.GetKeyDown(activationKey))
-        {
-            PerformOcrOnImage();
-        }
-    }
-    
     // Public method to perform OCR detection (can be called from other scripts)
     public void PerformOCRDetection()
     {
@@ -183,20 +176,6 @@ public class KeywordDetector : MonoBehaviour
         }
         
         Debug.Log($"PerformOCRDetection called for image: {(targetImage != null ? targetImage.name : "null")}");
-        
-        // 현재 키워드 매핑 상태 확인
-        Debug.Log($"Current keyword mappings count: {keywordMappings.Length}");
-        foreach (var mapping in keywordMappings)
-        {
-            if (mapping != null)
-            {
-                Debug.Log($"Mapping: keyword={mapping.keyword}, partialMatch={mapping.partialMatch}");
-            }
-            else
-            {
-                Debug.Log("Null mapping found");
-            }
-        }
         
         // Check if we have a valid target image
         if (targetImage == null)
@@ -229,37 +208,7 @@ public class KeywordDetector : MonoBehaviour
         // If not cached or not processed, perform OCR
         PerformOcrOnImage();
     }
-    
-    // Force OCR detection even if cached results exist
-    public void ForceOCRDetection()
-    {
-        if (!_isOcrReady)
-        {
-            Debug.LogWarning("OCR is not ready yet. Please wait for initialization to complete.");
-            return;
-        }
-        
-        Debug.Log($"ForceOCRDetection called for image: {(targetImage != null ? targetImage.name : "null")}");
-        
-        // Check if we have a valid target image
-        if (targetImage == null)
-        {
-            Debug.LogError("Target image is null. Cannot perform OCR detection.");
-            return;
-        }
-        
-        // Remove from cache if exists
-        if (_ocrResultsCache.ContainsKey(targetImage))
-        {
-            Debug.Log($"Removing existing cache entry for image: {targetImage.name}");
-            _ocrResultsCache.Remove(targetImage);
-        }
-        
-        // Perform OCR processing
-        Debug.Log($"Forcing OCR processing for image: {targetImage.name}");
-        PerformOcrOnImage();
-    }
-    
+
     // Process image OCR and cache the results
     private void ProcessImageOcr(RawImage image)
     {
@@ -277,7 +226,12 @@ public class KeywordDetector : MonoBehaviour
         }
         
         // Perform OCR without visualization
+        System.Diagnostics.Stopwatch convertTimer = new System.Diagnostics.Stopwatch();
+        convertTimer.Start();
         Texture2D sourceTexture = ConvertToTexture2D(image.texture);
+        convertTimer.Stop();
+        Debug.Log($"[KeywordDetector] ConvertToTexture2D time for {image.name}: {convertTimer.ElapsedMilliseconds}ms");
+        
         if (sourceTexture == null)
         {
             Debug.LogError($"Failed to convert texture to readable format for image: {image.name}");
@@ -287,12 +241,20 @@ public class KeywordDetector : MonoBehaviour
         
         try
         {
-            // Perform OCR
+            // Perform OCR with timing measurement
+            System.Diagnostics.Stopwatch recognizeTimer = new System.Diagnostics.Stopwatch();
+            recognizeTimer.Start();
             string recognizedText = _tesseractDriver.Recognize(sourceTexture);
+            recognizeTimer.Stop();
             Debug.Log($"OCR Result for {image.name}: {recognizedText}");
+            Debug.Log($"[KeywordDetector] Recognize time for {image.name}: {recognizeTimer.ElapsedMilliseconds}ms");
             
-            // Get word boxes from the highlighted texture
+            // Get word boxes from the highlighted texture with timing measurement
+            System.Diagnostics.Stopwatch extractTimer = new System.Diagnostics.Stopwatch();
+            extractTimer.Start();
             ExtractWordBoxes();
+            extractTimer.Stop();
+            Debug.Log($"[KeywordDetector] ExtractWordBoxes time for {image.name}: {extractTimer.ElapsedMilliseconds}ms");
             
             // Store results in cache
             ImageOcrResult result = _ocrResultsCache[image];
@@ -316,6 +278,7 @@ public class KeywordDetector : MonoBehaviour
             
             // IMPORTANT: Make a copy of the detected words to prevent them from being lost
             List<TesseractWrapper.DetectedWord> detectedWordsCopy = new List<TesseractWrapper.DetectedWord>();
+    
             var originalWords = _tesseractDriver.GetTesseractWrapper().GetDetectedWords();
             foreach (var word in originalWords)
             {
@@ -324,10 +287,24 @@ public class KeywordDetector : MonoBehaviour
             result.detectedWords = detectedWordsCopy;
             
             Debug.Log($"[KeywordDetector] Copied {detectedWordsCopy.Count} detected words for {image.name}");
+
+            var index = new Dictionary<string, List<Rect>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var w in detectedWordsCopy)
+            {
+                if (!index.TryGetValue(w.Text, out var list))
+                    index[w.Text] = list = new List<Rect>();
+                list.Add(w.BoundingBox);
+            }
+            result.wordIndex = index;      // <-- 단어 ➜ Rect[] 즉시 조회 가능
+
             result.processed = true;
             
-            // Cache the detected keyword rectangles for each mapping
+            // Cache the detected keyword rectangles for each mapping with timing measurement
+            System.Diagnostics.Stopwatch cacheTimer = new System.Diagnostics.Stopwatch();
+            cacheTimer.Start();
             CacheKeywordRects(result);
+            cacheTimer.Stop();
+            Debug.Log($"[KeywordDetector] CacheKeywordRects time for {image.name}: {cacheTimer.ElapsedMilliseconds}ms");
         }
         catch (Exception e)
         {
@@ -347,139 +324,44 @@ public class KeywordDetector : MonoBehaviour
     }
     
     // Cache keyword rectangles for the given OCR result
-    private void CacheKeywordRects(ImageOcrResult result)
+    private void CacheKeywordRects(ImageOcrResult res)
     {
-        if (result == null || result.detectedWords == null || result.detectedWords.Count == 0)
-        {
-            Debug.LogWarning($"[KeywordDetector] Cannot cache keyword rects: result={result}, detectedWords={result?.detectedWords?.Count}");
-            return;
-        }
-            
-        Debug.Log($"[KeywordDetector] Caching keyword rectangles for image: {result.image.name} with {result.detectedWords.Count} detected words");
-        
-        // 이미지별 키워드 매핑과 글로벌 키워드 매핑 합치기
-        List<KeywordMapping> combinedMappings = new List<KeywordMapping>();
-        
-        // 이미지별 매핑 추가 (우선순위 높음)
-        if (result.keywordMappings != null && result.keywordMappings.Count > 0)
-        {
-            combinedMappings.AddRange(result.keywordMappings);
-            Debug.Log($"[KeywordDetector] Added {result.keywordMappings.Count} image-specific mappings for {result.image.name}");
-        }
-        
-        // 글로벌 매핑 추가
-        if (keywordMappings != null && keywordMappings.Length > 0)
-        {
-            combinedMappings.AddRange(keywordMappings);
-            Debug.Log($"[KeywordDetector] Added {keywordMappings.Length} global mappings");
-        }
-        
-        // 매핑이 없는지 확인
-        if (combinedMappings.Count == 0)
-        {
-            Debug.LogWarning($"[KeywordDetector] No keyword mappings available (neither image-specific nor global). Skipping rectangle caching for image: {result.image.name}");
-            return;
-        }
-            
-        // Clear previous detections
-        result.detectedKeywordRects.Clear();
-        
-        // Create a temporary TesseractWrapper to use the cached detected words
-        TesseractWrapper tempWrapper = new TesseractWrapper();
-        tempWrapper.SetDetectedWords(result.detectedWords);
+        res.detectedKeywordRects.Clear();
 
-        // Log keywordMappings
-        Debug.Log($"[KeywordDetector] Processing {combinedMappings.Count} keyword mappings for image: {result.image.name}");
-        foreach (var mapping in combinedMappings)
+        // wordIndex가 없으면 (= ①을 안 했으면) 안전하게 원래 방식으로 fallback
+        if (res.wordIndex == null || res.wordIndex.Count == 0)
         {
-            if (mapping != null)
+            Debug.LogWarning($"wordIndex가 비어 있습니다. 기존 선형 탐색 방식으로 캐싱을 시도합니다.");
+            // ---- 여기서 tempWrapper 버전으로 넘어가도 되고, 바로 return 해도 됨 ----
+            return;
+        }
+
+        // (이미지별 + 글로벌) 매핑 합치기
+        IEnumerable<KeywordMapping> maps =
+            (res.keywordMappings ?? new List<KeywordMapping>())
+            .Concat(keywordMappings ?? Array.Empty<KeywordMapping>());
+
+        foreach (var m in maps)
+        {
+            if (m == null || string.IsNullOrWhiteSpace(m.keyword)) continue;
+
+            if (m.partialMatch)               // 부분 일치
             {
-                Debug.Log($"[KeywordDetector] Keyword mapping: {mapping.keyword}, partialMatch: {mapping.partialMatch}");
+                foreach (var key in res.wordIndex.Keys.Where(
+                        k => k.Contains(m.keyword, StringComparison.OrdinalIgnoreCase)))
+                {
+                    res.detectedKeywordRects[key] = res.wordIndex[key];
+                }
             }
-            else
+            else                              // 완전 일치
             {
-                Debug.LogWarning("[KeywordDetector] Null mapping found in mappings list");
+                if (res.wordIndex.TryGetValue(m.keyword, out var rects))
+                    res.detectedKeywordRects[m.keyword] = rects;
             }
         }
-        
-        // For each keyword mapping, check if it exists in the detected words
-        foreach (var mapping in combinedMappings)
-        {
-            if (mapping == null || string.IsNullOrEmpty(mapping.keyword))
-            {
-                Debug.LogWarning($"[KeywordDetector] Skipping empty or null keyword mapping");
-                continue;
-            }
-            
-            Debug.Log($"[KeywordDetector] Processing keyword mapping: {mapping.keyword}, partialMatch: {mapping.partialMatch}");
-            
-            // Check if the keyword contains multiple words
-            bool isMultiWord = mapping.keyword.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).Length > 1;
-            
-            if (isMultiWord && !mapping.partialMatch)
-            {
-                // For multi-word phrases, use the phrase search
-                List<TesseractWrapper.PhraseMatch> phraseMatches = tempWrapper.FindPhrase(mapping.keyword, false);
-                
-                if (phraseMatches.Count > 0)
-                {
-                    Debug.Log($"Found {phraseMatches.Count} instances of phrase: {mapping.keyword} in {result.image.name}");
-                    
-                    // Store the detected phrase rectangles
-                    List<Rect> rects = new List<Rect>();
-                    foreach (var match in phraseMatches)
-                    {
-                        rects.Add(match.BoundingBox);
-                    }
-                    result.detectedKeywordRects[mapping.keyword] = rects;
-                }
-                else
-                {
-                    Debug.Log($"No matches found for phrase: {mapping.keyword}");
-                }
-            }
-            else
-            {
-                // For single words or partial matches
-                List<TesseractWrapper.DetectedWord> matches;
-                
-                if (mapping.partialMatch)
-                {
-                    // Find partial matches (like Ctrl+F)
-                    matches = tempWrapper.FindKeywordsContaining(mapping.keyword, false);
-                }
-                else
-                {
-                    // Find exact word matches
-                    matches = tempWrapper.FindKeyword(mapping.keyword, false);
-                }
-                
-                if (matches.Count > 0)
-                {
-                    Debug.Log($"Found {matches.Count} instances of keyword: {mapping.keyword} in {result.image.name}");
-                    
-                    // Store the detected keyword rectangles
-                    List<Rect> rects = new List<Rect>();
-                    foreach (var match in matches)
-                    {
-                        rects.Add(match.BoundingBox);
-                    }
-                    result.detectedKeywordRects[mapping.keyword] = rects;
-                }
-                else
-                {
-                    Debug.Log($"No matches found for keyword: {mapping.keyword}");
-                }
-            }
-        }
-        
-        // Log the total number of cached rectangles
-        int totalRects = 0;
-        foreach (var pair in result.detectedKeywordRects)
-        {
-            totalRects += pair.Value.Count;
-        }
-        Debug.Log($"Cached a total of {totalRects} keyword rectangles for {result.detectedKeywordRects.Count} keywords in {result.image.name}");
+
+        Debug.Log($"[KeywordDetector] Cached {res.detectedKeywordRects.Count} keywords, " +
+                $"{res.detectedKeywordRects.Values.Sum(l => l.Count)} rectangles.");
     }
     
     // Visualize keywords from cached results
@@ -500,18 +382,10 @@ public class KeywordDetector : MonoBehaviour
         // 이미지별 키워드 매핑과 글로벌 키워드 매핑 합치기
         List<KeywordMapping> combinedMappings = new List<KeywordMapping>();
         
-        // 이미지별 매핑 추가 (우선순위 높음)
         if (cachedResult.keywordMappings != null && cachedResult.keywordMappings.Count > 0)
         {
             combinedMappings.AddRange(cachedResult.keywordMappings);
             Debug.Log($"[KeywordDetector] Using {cachedResult.keywordMappings.Count} image-specific mappings for visualization");
-        }
-        
-        // 글로벌 매핑 추가
-        if (keywordMappings != null && keywordMappings.Length > 0)
-        {
-            combinedMappings.AddRange(keywordMappings);
-            Debug.Log($"[KeywordDetector] Using {keywordMappings.Length} global mappings for visualization");
         }
         
         // 키워드 위치를 저장할 리스트
@@ -579,15 +453,27 @@ public class KeywordDetector : MonoBehaviour
         
         try
         {
-            // Perform OCR
+            // Perform OCR with timing measurement
+            System.Diagnostics.Stopwatch recognizeTimer = new System.Diagnostics.Stopwatch();
+            recognizeTimer.Start();
             string recognizedText = _tesseractDriver.Recognize(sourceTexture);
-            Debug.Log("OCR Result: " + recognizedText);
+            recognizeTimer.Stop();
+            Debug.Log($"OCR Result: {recognizedText}");
+            Debug.Log($"OCR Recognize time: {recognizeTimer.ElapsedMilliseconds}ms");
             
-            // Get word boxes from the highlighted texture
+            // Get word boxes from the highlighted texture with timing measurement
+            System.Diagnostics.Stopwatch extractTimer = new System.Diagnostics.Stopwatch();
+            extractTimer.Start();
             ExtractWordBoxes();
+            extractTimer.Stop();
+            Debug.Log($"ExtractWordBoxes time: {extractTimer.ElapsedMilliseconds}ms");
             
-            // Find and mark keywords
+            // Find and mark keywords with timing measurement
+            System.Diagnostics.Stopwatch markTimer = new System.Diagnostics.Stopwatch();
+            markTimer.Start();
             FindAndMarkKeywords(recognizedText);
+            markTimer.Stop();
+            Debug.Log($"FindAndMarkKeywords time: {markTimer.ElapsedMilliseconds}ms");
         }
         catch (Exception e)
         {
@@ -605,61 +491,33 @@ public class KeywordDetector : MonoBehaviour
     
     private Texture2D ConvertToTexture2D(Texture texture)
     {
-        try
-        {
-            // Check if the texture is already a readable Texture2D
-            Texture2D existingTex2D = texture as Texture2D;
-            if (existingTex2D != null)
-            {
-                try
-                {
-                    // Test if the texture is readable
-                    Color32[] pixels = existingTex2D.GetPixels32();
-                    // If we got here, the texture is readable, so we can return it directly
-                    return existingTex2D;
-                }
-                catch
-                {
-                    // Texture is not readable, continue with conversion
-                    Debug.Log("Texture is not readable, converting to readable format");
-                }
-            }
-            
-            // Create a new readable Texture2D
-            Texture2D tex2D = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false);
-            
-            // Create a temporary RenderTexture
-            RenderTexture tempRT = RenderTexture.GetTemporary(
-                texture.width, texture.height, 0, RenderTextureFormat.ARGB32);
-            
-            // Copy the source texture to the temporary RenderTexture
-            Graphics.Blit(texture, tempRT);
-            
-            // Store the active RenderTexture
-            RenderTexture previousRT = RenderTexture.active;
-            
-            // Set the temporary RenderTexture as active
-            RenderTexture.active = tempRT;
-            
-            // Read pixels from the active RenderTexture to the new Texture2D
-            tex2D.ReadPixels(new Rect(0, 0, texture.width, texture.height), 0, 0);
-            tex2D.Apply();
-            
-            // Restore the previously active RenderTexture
-            RenderTexture.active = previousRT;
-            
-            // Release the temporary RenderTexture
-            RenderTexture.ReleaseTemporary(tempRT);
-            
-            return tex2D;
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Error converting texture: {e.Message}\n{e.StackTrace}");
-            return null;
-        }
+        // ❶ 다운스케일이 1.0이면, 그리고 texture가 Texture2D·isReadable==true 면 그대로 사용
+        if (ocrScale >= 0.999f &&
+            texture is Texture2D srcT2D &&
+            srcT2D.isReadable)
+            return srcT2D;                    // 크기 유지, 복사 없음
+
+        // ❷ 그 외의 경우에는 항상 (다운스케일 또는 그레이 변환을 위해) RenderTexture 경유
+        int w = Mathf.CeilToInt(texture.width  * ocrScale);
+        int h = Mathf.CeilToInt(texture.height * ocrScale);
+
+        RenderTexture rt = RenderTexture.GetTemporary(
+            w, h, 0, RenderTextureFormat.R8); // 1채널 = 8-bit Gray
+        Graphics.Blit(texture, rt);           // 다운스케일 + RGB→Gray
+
+        RenderTexture prev = RenderTexture.active;
+        RenderTexture.active = rt;
+
+        Texture2D dst = new Texture2D(w, h, TextureFormat.R8, false, true);
+        dst.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+        dst.Apply();
+
+        RenderTexture.active = prev;
+        RenderTexture.ReleaseTemporary(rt);
+        return dst;                           // 항상 읽기 가능
     }
-    
+
+        
     private void ExtractWordBoxes()
     {
         // This method is no longer needed as we're directly using the DetectedWords from TesseractWrapper
@@ -891,28 +749,9 @@ public class KeywordDetector : MonoBehaviour
         
         Debug.Log($"[KeywordDetector] Adding global keyword mapping: {mapping.keyword}, partialMatch: {mapping.partialMatch}");
         
-        // Check if this mapping already exists
-        bool alreadyExists = false;
-        foreach (var existingMapping in keywordMappings)
-        {
-            if (existingMapping.keyword == mapping.keyword)
-            {
-                alreadyExists = true;
-                break;
-            }
-        }
-        
-        if (!alreadyExists)
-        {
-            // Add mapping to the list
-            Array.Resize(ref keywordMappings, keywordMappings.Length + 1);
-            keywordMappings[keywordMappings.Length - 1] = mapping;
-            Debug.Log($"[KeywordDetector] Successfully added global mapping. Total mappings: {keywordMappings.Length}");
-        }
-        else
-        {
-            Debug.Log($"[KeywordDetector] Global mapping for keyword '{mapping.keyword}' already exists, skipping.");
-        }
+        Array.Resize(ref keywordMappings, keywordMappings.Length + 1);
+        keywordMappings[keywordMappings.Length - 1] = mapping;
+        Debug.Log($"[KeywordDetector] Successfully added global mapping. Total mappings: {keywordMappings.Length}");
     }
     
     // Method to add a keyword mapping for a specific image
@@ -984,5 +823,31 @@ public class KeywordDetector : MonoBehaviour
     public void ClearAllMarkers()
     {
         ClearMarkers();
+    }
+
+    public void PreprocessTexture(Texture2D tex, KeywordMapping[] mappings)
+    {
+        if (!_isOcrReady || tex == null) return;
+
+        // ❶ 텍스처 전용 더미 RawImage 만들기 (씬에 보이지 않음)
+        var go   = new GameObject($"OCR_DUMMY_{tex.GetInstanceID()}");
+        go.hideFlags = HideFlags.HideAndDontSave;
+        var img  = go.AddComponent<RawImage>();
+        img.texture = tex;
+        // 사이즈 설정(텍스처 크기에 맞춰두면 ConvertTextureToWorldPosition 계산에 사용 가능)
+        img.rectTransform.sizeDelta = new Vector2(tex.width, tex.height);
+
+        // ❷ 매핑 등록
+        ClearKeywordMappingsForImage(img);
+        if (mappings != null)
+            foreach (var m in mappings)
+                AddKeywordMappingForImage(img, m);
+
+        // ❸ OCR 실행 (캐시에 들어감)
+        SetTargetImage(img);
+        PerformOCRDetection();
+
+        // ❹ 더미는 파괴하지 말고 숨겨두면 캐시 키가 유지됨
+        img.gameObject.SetActive(false);
     }
 }

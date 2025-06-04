@@ -22,6 +22,9 @@ public class InteractableKeywordVisualizer : MonoBehaviour
     [SerializeField] private Color highlightColor = new Color(0.5f, 0.8f, 1f, 0.3f);
     [SerializeField] private BezierCurveManager bezierCurveManager; // 베지어 곡선 관리자 참조
     
+    [SerializeField] private Texture2D[] mappedTextures;   // 이 콜라이더가 선택됐을 때 보여줄 이미지들
+    [SerializeField] private DisplayImageManager displayManager;
+
     private XRSimpleInteractable _interactable;
     private MeshRenderer _highlightRenderer;
     private GameObject _highlightObject;
@@ -252,6 +255,9 @@ public class InteractableKeywordVisualizer : MonoBehaviour
         
         if (_isVisualizationActive)
         {
+            if (displayManager)
+                displayManager.SetDisplayImages(mappedTextures);    
+                
             if (bezierCurveManager != null)
             {
                 bezierCurveManager.SetSourcePoint(transform);
@@ -308,9 +314,6 @@ public class InteractableKeywordVisualizer : MonoBehaviour
         return images.ToArray();
     }
     
-    // 항상 강제 OCR 처리를 활성화하여 테스트 (문제 해결 후 false로 변경할 수 있음)
-    [SerializeField] private bool forceOcrProcessing = false; 
-    
     private void ActivateKeywordVisualization()
     {
         if (keywordDetector == null)
@@ -321,7 +324,6 @@ public class InteractableKeywordVisualizer : MonoBehaviour
             
         Debug.Log($"[InteractableKeywordVisualizer] Activating keyword visualization for: {gameObject.name}");
         
-        // Clear any existing markers
         keywordDetector.ClearAllMarkers();
         
         // Process each visualization
@@ -333,13 +335,23 @@ public class InteractableKeywordVisualizer : MonoBehaviour
                 continue;
             }
             
+            float imageProcessingStartTime = Time.realtimeSinceStartup;
+            
             // Set the target image for OCR
+            float setTargetStartTime = Time.realtimeSinceStartup;
             keywordDetector.SetTargetImage(visualization.targetImage);
+            float setTargetTime = (Time.realtimeSinceStartup - setTargetStartTime) * 1000f;
+            Debug.Log($"[TimeMeasurement] SetTargetImage for {visualization.targetImage.name} took {setTargetTime:F2} ms");
             
             // 이미지별 키워드 매핑 초기화
+            float clearMappingsStartTime = Time.realtimeSinceStartup;
             keywordDetector.ClearKeywordMappingsForImage(visualization.targetImage);
+            float clearMappingsTime = (Time.realtimeSinceStartup - clearMappingsStartTime) * 1000f;
+            Debug.Log($"[TimeMeasurement] ClearKeywordMappingsForImage for {visualization.targetImage.name} took {clearMappingsTime:F2} ms");
             
             // 이미지별 키워드 매핑 추가
+            float addMappingsStartTime = Time.realtimeSinceStartup;
+            int mappingCount = 0;
             foreach (var mapping in visualization.keywordMappings)
             {
                 // 새로운 KeywordMapping 객체 생성하여 전달
@@ -351,25 +363,21 @@ public class InteractableKeywordVisualizer : MonoBehaviour
                     partialMatch = mapping.partialMatch
                 };
                 keywordDetector.AddKeywordMappingForImage(visualization.targetImage, newMapping);
-                Debug.Log($"[InteractableKeywordVisualizer] Added keyword mapping for image {visualization.targetImage.name}: {mapping.keyword}, partialMatch: {mapping.partialMatch}");
+                mappingCount++;
             }
+            float addMappingsTime = (Time.realtimeSinceStartup - addMappingsStartTime) * 1000f;
+            Debug.Log($"[TimeMeasurement] Adding {mappingCount} keyword mappings for {visualization.targetImage.name} took {addMappingsTime:F2} ms");
             
             // Perform OCR and detect keywords for this image only
-            if (forceOcrProcessing)
-            {
-                // Force OCR processing (ignore cache)
-                Debug.Log($"[InteractableKeywordVisualizer] Forcing OCR processing for image: {visualization.targetImage.name}");
-                keywordDetector.ForceOCRDetection();
-            }
-            else
-            {
-                // Use cached results if available
-                Debug.Log($"[InteractableKeywordVisualizer] Attempting to use cached OCR results for image: {visualization.targetImage.name}");
-                keywordDetector.PerformOCRDetection();
-            }
+            float ocrStartTime = Time.realtimeSinceStartup;
             
-            // Debug log to check detection
-            Debug.Log($"[InteractableKeywordVisualizer] Processed image {visualization.targetImage.name} with {visualization.keywordMappings.Length} keywords");
+            Debug.Log($"[InteractableKeywordVisualizer] Attempting to use cached OCR results for image: {visualization.targetImage.name}");
+            keywordDetector.PerformOCRDetection();
+            float ocrTime = (Time.realtimeSinceStartup - ocrStartTime) * 1000f;
+            Debug.Log($"[TimeMeasurement] OCR detection for {visualization.targetImage.name} took {ocrTime:F2} ms");
+            
+            float totalImageTime = (Time.realtimeSinceStartup - imageProcessingStartTime) * 1000f;
+            Debug.Log($"[TimeMeasurement] Total processing for image {visualization.targetImage.name} took {totalImageTime:F2} ms with {visualization.keywordMappings.Length} keywords");
         }
     }
     
