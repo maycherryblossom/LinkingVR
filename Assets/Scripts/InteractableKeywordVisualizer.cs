@@ -139,9 +139,8 @@ public class InteractableKeywordVisualizer : MonoBehaviour
         }
         else
         {
-            // Create a transparent material using Universal Render Pipeline or Built-in RP
-            // First try URP transparent shader
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            Shader shader = Shader.Find("Unlit/Transparent");
+            if (shader == null) shader = Shader.Find("Unlit/Color");   // 예비
             
             // If URP shader not found, try Built-in RP
             if (shader == null)
@@ -188,12 +187,14 @@ public class InteractableKeywordVisualizer : MonoBehaviour
                 _highlightRenderer.material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
                 _highlightRenderer.material.renderQueue = 3000;
             }
-            // Unlit/Transparent shader doesn't need additional setup
+            
+
         }
         
-        // Set highlight color
-        _highlightRenderer.material.color = highlightColor;
-        
+        Color c = highlightColor;          // 인스펙터에서 고른 색
+        c.a = highlightAlpha;              // 별도 알파 값 적용(0~1) - 필요 없으면 삭제
+        _highlightRenderer.material.color = c;  
+                
         // Initially hide the highlight
         _highlightObject.SetActive(false);
     }

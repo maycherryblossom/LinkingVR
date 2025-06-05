@@ -109,6 +109,38 @@ public class KeywordDetector : MonoBehaviour
                     res.detectedKeywordRects[k] = res.wordIndex[k];
             else if (res.wordIndex.TryGetValue(m.keyword, out var rects))
                 res.detectedKeywordRects[m.keyword] = rects;
+            else if (m.keyword.Contains(' '))          // 공백 → 다중 단어
+            {
+                string[] tokens = m.keyword
+                                .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+                for (int i = 0; i <= res.detectedWords.Count - tokens.Length; i++)
+                {
+                    bool match = true;
+                    for (int j = 0; j < tokens.Length; j++)
+                    {
+                        if (!res.detectedWords[i + j].Text
+                            .Equals(tokens[j], StringComparison.OrdinalIgnoreCase))
+                        { match = false; break; }
+                    }
+                    if (match)
+                    {
+                        // 여러 개의 bounding box → 하나로 합치기
+                        var seg = res.detectedWords.GetRange(i, tokens.Length);
+
+                        float minX = seg.Min(w => w.BoundingBox.x);
+                        float minY = seg.Min(w => w.BoundingBox.y);
+                        float maxX = seg.Max(w => w.BoundingBox.x + w.BoundingBox.width);
+                        float maxY = seg.Max(w => w.BoundingBox.y + w.BoundingBox.height);
+
+                        Rect combined = new Rect(minX, minY, maxX - minX, maxY - minY);
+
+                        if (!res.detectedKeywordRects.TryGetValue(m.keyword, out var list))
+                            res.detectedKeywordRects[m.keyword] = list = new();
+                        list.Add(combined);
+                    }
+                }
+            }
         }
     }
 
