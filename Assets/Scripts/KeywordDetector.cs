@@ -39,7 +39,8 @@ public class KeywordDetector : MonoBehaviour
     [SerializeField] private bool showMarkers = true; // 마커 표시 여부 (디버깅용)
     [SerializeField, Range(0.25f, 1f)]private float ocrScale = 0.5f;   // 1.0 = 원본, 0.5 = 절반 해상도   
     [SerializeField, Tooltip("미리 OCR 해둘 텍스처-키워드 매핑")]
-    private Dictionary<Texture2D, ImageOcrResult> _ocrCache = new();
+    private readonly Dictionary<Texture2D, ImageOcrResult> _ocrCache =
+        new Dictionary<Texture2D, ImageOcrResult>();
     
     // 마커 부모 객체를 자동으로 설정하는 메서드
     private void InitializeMarkersParent()
@@ -58,10 +59,6 @@ public class KeywordDetector : MonoBehaviour
     private List<GameObject> _activeMarkers = new List<GameObject>();
     private bool _isOcrReady = false;
     
-    // Cache for OCR results
-    private Dictionary<Texture2D, ImageOcrResult> _ocrResultsCache =
-        new Dictionary<Texture2D, ImageOcrResult>();
-
     private readonly List<(Texture2D tex, KeywordMapping[] maps)> _pending
         = new();                 // OCR 준비 전 들어온 요청 저장
 
@@ -100,155 +97,6 @@ public class KeywordDetector : MonoBehaviour
         _pending.Clear();
     }
 
-    
-    // private IEnumerator DelayedProcessAllImages()
-    // {
-    //     // 2초 지연 - 다른 컴포넌트의 Start 메서드가 실행될 시간을 확보
-    //     Debug.Log("Waiting for 2 seconds before processing images...");
-    //     yield return new WaitForSeconds(2f);
-        
-    //     ProcessAllRegisteredImages();
-    // }
-    
-    // Process all images that will be used in the scene
-    // private void ProcessAllRegisteredImages()
-    // {
-    //     Debug.Log("[KeywordDetector] Pre-processing all registered images...");
-        
-    //     // Find all InteractableKeywordVisualizer components in the scene
-    //     InteractableKeywordVisualizer[] visualizers = FindObjectsOfType<InteractableKeywordVisualizer>();
-        
-    //     // 캐시 상태 확인
-    //     Debug.Log($"[KeywordDetector] Current cache status: {_ocrResultsCache.Count} images cached");
-        
-    //     foreach (var visualizer in visualizers)
-    //     {
-    //         // Get all images from the visualizer
-    //         RawImage[] images = visualizer.GetAllImages();
-            
-    //         if (images != null && images.Length > 0)
-    //         {
-    //             Debug.Log($"[KeywordDetector] Found {images.Length} images in visualizer {visualizer.name}");
-                
-    //             // Process each image
-    //             foreach (var image in images)
-    //             {
-    //                 if (image != null)
-    //                 {
-    //                     Debug.Log($"[KeywordDetector] Pre-processing image: {image.name}");
-                        
-    //                     // 이미지를 캐시에 추가
-    //                     if (!_ocrResultsCache.ContainsKey(image))
-    //                     {
-    //                         _ocrResultsCache[image] = new ImageOcrResult { image = image };
-    //                         Debug.Log($"[KeywordDetector] Created new cache entry for image: {image.name}");
-    //                     }
-    //                     else
-    //                     {
-    //                         Debug.Log($"[KeywordDetector] Image {image.name} already in cache");
-    //                     }
-                        
-    //                     // 이미지 처리
-    //                     ProcessImageOcr(image);
-                        
-    //                     // 캐시 상태 확인
-    //                     if (_ocrResultsCache.ContainsKey(image))
-    //                     {
-    //                         var result = _ocrResultsCache[image];
-    //                         Debug.Log($"[KeywordDetector] Cache status for {image.name}: processed={result.processed}, detectedWords={(result.detectedWords != null ? result.detectedWords.Count : 0)}");
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-        
-    //     Debug.Log("[KeywordDetector] All images pre-processed. Ready for visualization.");
-    //     Debug.Log($"[KeywordDetector] Final cache status: {_ocrResultsCache.Count} images cached");
-    // }
-    
-    // Public method to perform OCR detection (can be called from other scripts)
-    // public void PerformOCRDetection()
-    // {
-    //     if (!_isOcrReady)
-    //     {
-    //         Debug.LogWarning("OCR is not ready yet. Please wait for initialization to complete.");
-    //         return;
-    //     }
-        
-    //     Debug.Log($"PerformOCRDetection called for image: {(targetImage != null ? targetImage.name : "null")}");
-        
-    //     // Check if we have a valid target image
-    //     if (targetImage == null)
-    //     {
-    //         Debug.LogError("Target image is null. Cannot perform OCR detection.");
-    //         return;
-    //     }
-        
-    //     // Check if the image has already been processed
-    //     if (_ocrResultsCache.ContainsKey(targetImage))
-    //     {
-    //         // Use cached results
-    //         ImageOcrResult cachedResult = _ocrResultsCache[targetImage];
-    //         if (cachedResult.processed)
-    //         {
-    //             Debug.Log($"[KeywordDetector] Using cached OCR results for image: {targetImage.name}");
-    //             VisualizeKeywordsFromCache(cachedResult);
-    //             return;
-    //         }
-    //         else
-    //         {
-    //             Debug.Log($"[KeywordDetector] Image {targetImage.name} is in cache but not processed yet.");
-    //         }
-    //     }
-    //     else
-    //     {
-    //         Debug.Log($"[KeywordDetector] Image {targetImage.name} not found in cache. Processing now.");
-    //     }
-        
-    //     // If not cached or not processed, perform OCR
-    //     PerformOcrOnImage();
-    // }
-
-    // // Cache keyword rectangles for the given OCR result
-    // private void CacheKeywordRects(ImageOcrResult res)
-    // {
-    //     res.detectedKeywordRects.Clear();
-
-    //     // wordIndex가 없으면 (= ①을 안 했으면) 안전하게 원래 방식으로 fallback
-    //     if (res.wordIndex == null || res.wordIndex.Count == 0)
-    //     {
-    //         Debug.LogWarning($"wordIndex가 비어 있습니다. 기존 선형 탐색 방식으로 캐싱을 시도합니다.");
-    //         // ---- 여기서 tempWrapper 버전으로 넘어가도 되고, 바로 return 해도 됨 ----
-    //         return;
-    //     }
-
-    //     // (이미지별 + 글로벌) 매핑 합치기
-    //     IEnumerable<KeywordMapping> maps =
-    //         (res.keywordMappings ?? new List<KeywordMapping>())
-    //         .Concat(keywordMappings ?? Array.Empty<KeywordMapping>());
-
-    //     foreach (var m in maps)
-    //     {
-    //         if (m == null || string.IsNullOrWhiteSpace(m.keyword)) continue;
-
-    //         if (m.partialMatch)               // 부분 일치
-    //         {
-    //             foreach (var key in res.wordIndex.Keys.Where(
-    //                     k => k.Contains(m.keyword, StringComparison.OrdinalIgnoreCase)))
-    //             {
-    //                 res.detectedKeywordRects[key] = res.wordIndex[key];
-    //             }
-    //         }
-    //         else                              // 완전 일치
-    //         {
-    //             if (res.wordIndex.TryGetValue(m.keyword, out var rects))
-    //                 res.detectedKeywordRects[m.keyword] = rects;
-    //         }
-    //     }
-
-    //     Debug.Log($"[KeywordDetector] Cached {res.detectedKeywordRects.Count} keywords, " +
-    //             $"{res.detectedKeywordRects.Values.Sum(l => l.Count)} rectangles.");
-    // }
 
     private void CacheKeywordRects(ImageOcrResult res)
     {
@@ -277,16 +125,39 @@ public class KeywordDetector : MonoBehaviour
 
     public void VisualizeKeywordsForTexture(Texture2D tex, RectTransform viewRect)
     {
-        if (!_ocrCache.TryGetValue(tex, out var res) || !res.processed) return;
+        Debug.Log($"[KeywordDetector Debug] VisualizeKeywordsForTexture called for texture: {(tex != null ? tex.name : "null")}");
+        Debug.Log($"[KeywordDetector Debug] _ocrCache contains {(_ocrCache != null ? _ocrCache.Count.ToString() : "null")} entries.");
+
+        if (tex != null && _ocrCache != null && _ocrCache.ContainsKey(tex))
+        {
+            Debug.Log($"[KeywordDetector Debug] Texture '{tex.name}' FOUND in _ocrCache.");
+            ImageOcrResult cachedRes = _ocrCache[tex];
+            Debug.Log($"[KeywordDetector Debug] Cached result for '{tex.name}': processed = {cachedRes.processed}");
+        }
+        else if (tex != null)
+        {
+            Debug.Log($"[KeywordDetector Debug] Texture '{tex.name}' NOT FOUND in _ocrCache.");
+        }
+        else
+        {
+            Debug.Log($"[KeywordDetector Debug] Input texture 'tex' is null.");
+        }
+
+        if (!_ocrCache.TryGetValue(tex, out var res) || !res.processed) 
+        {
+            Debug.Log($"[KeywordDetector Debug] Condition TRUE, returning early. _ocrCache.TryGetValue success: {_ocrCache.TryGetValue(tex, out _)}, res.processed: {(res != null ? res.processed.ToString() : "res is null or not found")}");
+            return;
+        }
 
         // (기존 코드 일부를 재사용)
         List<Vector3> worldPos = new();
         foreach (var m in res.keywordMappings)
         {
+            Debug.Log($"[KeywordDetector] Visualizing keywords for texture: {tex.name}, keyword: {m.keyword}");
             if (!res.detectedKeywordRects.TryGetValue(m.keyword, out var rects)) continue;
 
             // log
-            Debug.Log($"[KeywordDetector] Visualizing keywords for texture: {tex.name}, keyword: {m.keyword}, rects: {rects.Count}");
+            Debug.Log($"rects: {rects.Count}");
 
             foreach (var r in rects)
             {
@@ -330,49 +201,6 @@ public class KeywordDetector : MonoBehaviour
     }
 
         
-    private void ExtractWordBoxes()
-    {
-        // This method is no longer needed as we're directly using the DetectedWords from TesseractWrapper
-        // The information is already stored in the TesseractWrapper.GetDetectedWords() method
-    }
-
-    // private Vector3 ConvertTextureToWorldPosition(Rect boundingBox, RectTransform imageRect)
-    // {
-    //     // 현재 이미지에 대한 캐시된 텍스처 크기 가져오기
-    //     int textureWidth = 1024; // 기본값
-    //     int textureHeight = 1024; // 기본값
-        
-    //     // 타겟 이미지에 대한 캐시된 결과 찾기
-    //     if (targetImage != null && _ocrResultsCache.TryGetValue(targetImage, out ImageOcrResult cachedResult))
-    //     {
-    //         textureWidth = cachedResult.textureWidth;
-    //         textureHeight = cachedResult.textureHeight;
-    //         Debug.Log($"[KeywordDetector] Using cached texture dimensions for {targetImage.name}: {textureWidth}x{textureHeight}");
-    //     }
-    //     else
-    //     {
-    //         Debug.LogWarning($"[KeywordDetector] No cached texture dimensions found for target image. Using default values.");
-    //     }
-        
-    //     // Calculate the center of the bounding box in texture coordinates (0-1)
-    //     Vector2 texturePosNormalized = new Vector2(
-    //         (boundingBox.x + boundingBox.width / 2) / textureWidth,
-    //         (boundingBox.y + boundingBox.height / 2) / textureHeight
-    //     );
-        
-    //     // Convert the normalized texture position to RawImage local position
-    //     Vector2 localPos = new Vector2(
-    //         Mathf.Lerp(-imageRect.rect.width / 2, imageRect.rect.width / 2, texturePosNormalized.x),
-    //         Mathf.Lerp(-imageRect.rect.height / 2, imageRect.rect.height / 2, texturePosNormalized.y)
-    //     );
-        
-    //     // Convert the local position to world position
-    //     Vector3 worldPos = imageRect.TransformPoint(localPos);
-        
-    //     // Position slightly in front of the RawImage
-    //     return worldPos + Camera.main.transform.forward * 0.1f;
-    // }
-
     private Vector3 ConvertTextureToWorldPosition(Rect box, RectTransform imgRect, int w, int h)
     {
         Vector2 nrm = new(box.x + box.width * .5f, box.y + box.height * .5f);
@@ -413,69 +241,11 @@ public class KeywordDetector : MonoBehaviour
         
         _activeMarkers.Clear();
     }
-    
-    // Method to add a new keyword mapping at runtime (global mapping)
-    // public void AddKeywordMapping(KeywordMapping mapping)
-    // {
-    //     if (mapping == null || string.IsNullOrEmpty(mapping.keyword))
-    //     {
-    //         Debug.LogError("Cannot add empty or null keyword mapping");
-    //         return;
-    //     }
-        
-    //     Debug.Log($"[KeywordDetector] Adding global keyword mapping: {mapping.keyword}, partialMatch: {mapping.partialMatch}");
-        
-    //     Array.Resize(ref keywordMappings, keywordMappings.Length + 1);
-    //     keywordMappings[keywordMappings.Length - 1] = mapping;
-    //     Debug.Log($"[KeywordDetector] Successfully added global mapping. Total mappings: {keywordMappings.Length}");
-    // }
-    
-    // Method to add a keyword mapping for a specific image
-    // public void AddKeywordMappingForImage(RawImage image, KeywordMapping mapping)
-    // {
-    //     if (image == null || mapping == null || string.IsNullOrEmpty(mapping.keyword))
-    //     {
-    //         Debug.LogError("[KeywordDetector] Cannot add mapping: image or mapping is invalid");
-    //         return;
-    //     }
-        
-    //     // Create cache entry if it doesn't exist
-    //     if (!_ocrResultsCache.ContainsKey(image))
-    //     {
-    //         _ocrResultsCache[image] = new ImageOcrResult { image = image };
-    //         Debug.Log($"[KeywordDetector] Created new cache entry for image: {image.name}");
-    //     }
-        
-    //     // Get the cache entry
-    //     ImageOcrResult result = _ocrResultsCache[image];
-        
-    //     // Check if this mapping already exists for this image
-    //     bool alreadyExists = false;
-    //     foreach (var existingMapping in result.keywordMappings)
-    //     {
-    //         if (existingMapping.keyword == mapping.keyword)
-    //         {
-    //             alreadyExists = true;
-    //             break;
-    //         }
-    //     }
-        
-    //     if (!alreadyExists)
-    //     {
-    //         // Add mapping to the image's list
-    //         result.keywordMappings.Add(mapping);
-    //         Debug.Log($"[KeywordDetector] Added mapping for image {image.name}: {mapping.keyword}, partialMatch: {mapping.partialMatch}");
-    //     }
-    //     else
-    //     {
-    //         Debug.Log($"[KeywordDetector] Mapping for keyword '{mapping.keyword}' already exists for image {image.name}, skipping.");
-    //     }
-    // }
 
     public void AddKeywordMappingForTexture(Texture2D tex, KeywordMapping map)
     {
-        if (!_ocrResultsCache.TryGetValue(tex, out var res))
-            _ocrResultsCache[tex] = res = new ImageOcrResult { texture = tex };
+        if (!_ocrCache.TryGetValue(tex, out var res))
+            _ocrCache[tex] = res = new ImageOcrResult { texture = tex };
 
         // 중복 검사
         if (res.keywordMappings.Any(k => k.keyword == map.keyword)) return;
@@ -484,29 +254,6 @@ public class KeywordDetector : MonoBehaviour
         // Rect 재계산
         CacheKeywordRects(res);
     }
-
-    // Method to clear keyword mappings for a specific image
-    // public void ClearKeywordMappingsForImage(RawImage image)
-    // {
-    //     if (image == null)
-    //     {
-    //         Debug.LogError("[KeywordDetector] Cannot clear mappings: image is null");
-    //         return;
-    //     }
-        
-    //     if (_ocrResultsCache.ContainsKey(image))
-    //     {
-    //         _ocrResultsCache[image].keywordMappings.Clear();
-    //         Debug.Log($"[KeywordDetector] Cleared all keyword mappings for image: {image.name}");
-    //     }
-    // }
-    
-    // Method to clear all keyword mappings (global)
-    // public void ClearKeywordMappings()
-    // {
-    //     keywordMappings = new KeywordMapping[0];
-    //     Debug.Log("[KeywordDetector] Cleared all global keyword mappings");
-    // }
     
     // Method to clear all active markers
     public void ClearAllMarkers()
@@ -523,8 +270,8 @@ public class KeywordDetector : MonoBehaviour
         }
 
         // ───── 캐시 초기화 ─────
-        if (!_ocrResultsCache.TryGetValue(tex, out var res))
-            _ocrResultsCache[tex] = res = new ImageOcrResult { texture = tex };
+        if (!_ocrCache.TryGetValue(tex, out var res))
+            _ocrCache[tex] = res = new ImageOcrResult { texture = tex };
 
 
         /* OCR 수행(캐시에 없을 때만) */
