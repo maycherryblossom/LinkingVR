@@ -82,31 +82,18 @@ public class BezierCurveRenderer : MonoBehaviour
         // P0와 P3 사이의 거리
         float distance = Vector3.Distance(p0, p3);
 
-        // 곡선이 휘어지는 방향 결정
-        // 1. P0->P3 방향과 bendDirectionReference(예: 월드 up)에 수직인 벡터
-        Vector3 crossProduct = Vector3.Cross(directionP0toP3, bendDirectionReference.normalized);
-        // 2. 만약 P0->P3와 bendDirectionReference가 거의 평행하면 (crossProduct가 0에 가까우면)
-        //    대체 방향을 사용 (예: 카메라의 오른쪽 방향)
-        if (crossProduct.sqrMagnitude < 0.001f)
-        {
-            crossProduct = Vector3.Cross(directionP0toP3, Camera.main.transform.right);
-            if (crossProduct.sqrMagnitude < 0.001f) // 이것도 평행하면 그냥 임시로 위로
-            {
-                 crossProduct = Vector3.up;
-            }
-        }
-        Vector3 bendOffset = crossProduct.normalized * distance * controlPointOffsetFactor;
+        Vector3 camForward = Camera.main.transform.forward;
+        Vector3 cross = Vector3.Cross(directionP0toP3, Vector3.up);
+        // “cross가 카메라 쪽을 향하지 않으면” → 뒤집어서 카메라 쪽으로 돌린다
+        if (Vector3.Dot(cross, Camera.main.transform.forward) > 0)   // ❶ 부등호 반전
+            cross = -cross; 
+
+        Vector3 bendOffset = cross.normalized * distance * controlPointOffsetFactor;
 
         // 제어점 P1: P0에서 P3쪽으로 약간 이동 후, bendOffset 만큼 이동
         Vector3 p1 = p0 + directionP0toP3 * (distance * 0.25f) + bendOffset;
         // 제어점 P2: P3에서 P0쪽으로 약간 이동 후, bendOffset 만큼 이동 (같은 방향으로 휘게)
         Vector3 p2 = p3 - directionP0toP3 * (distance * 0.25f) + bendOffset;
-
-
-        // 좀 더 간단한 제어점 설정 (주로 한쪽으로만 휘는 곡선)
-        // Vector3 p1 = p0 + (p3 - p0).normalized * distance * 0.3f + bendDirectionReference.normalized * distance * controlPointOffsetFactor;
-        // Vector3 p2 = p3 - (p3 - p0).normalized * distance * 0.3f + bendDirectionReference.normalized * distance * controlPointOffsetFactor;
-
 
         for (int i = 0; i <= lineSegments; i++)
         {
