@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class BezierCurveManager : MonoBehaviour
 {
@@ -9,6 +10,10 @@ public class BezierCurveManager : MonoBehaviour
     [SerializeField] private int initialPoolSize = 10;
     [SerializeField] private Transform curvesParent;
     [SerializeField] private bool showMarkers = false; // 디버깅용 마커 표시 여부
+    [SerializeField] private float labelForwardOffset = 5f;
+    [SerializeField] private float labelVerticalOffset = 0.1f;
+    [SerializeField] private float labelSpreadAngle   = 30f; // degree
+    [SerializeField] private float baseAngle = 0f; // degree
     
     private List<BezierCurveRenderer> _curvePool = new List<BezierCurveRenderer>();
     private List<BezierCurveRenderer> _activeCurves = new List<BezierCurveRenderer>();
@@ -60,44 +65,95 @@ public class BezierCurveManager : MonoBehaviour
         Debug.Log($"[BezierCurveManager] Set source point to: {(source != null ? source.name : "null")}");
     }
     
-    // 키워드 위치에 베지어 곡선 생성
-    public void CreateCurvesForKeywords(List<Vector3> keywordPositions)
+    public void CreateCurvesForKeywords(
+        List<Vector3> keywordPositions,
+        List<KeywordMapping> mappings)
     {
-        // 이전 곡선 비활성화
+        // 이전 활성 곡선 정리
         // ClearActiveCurves();
-        
-        if (_sourceTransform == null || keywordPositions == null || keywordPositions.Count == 0)
+
+        if (_sourceTransform == null
+            || keywordPositions == null
+            || mappings == null
+            || keywordPositions.Count != mappings.Count)
         {
-            Debug.LogWarning($"[BezierCurveManager] Cannot create curves: source={_sourceTransform}, positions={keywordPositions?.Count}");
+            Debug.LogWarning(
+                $"[BezierCurveManager] Cannot create curves+labels: " +
+                $"source={_sourceTransform}, positions={keywordPositions?.Count}, mappings={mappings?.Count}");
             return;
         }
-        
-        Debug.Log($"[BezierCurveManager] Creating {keywordPositions.Count} bezier curves from {_sourceTransform.name}");
-        
-        // 각 키워드 위치에 대해 베지어 곡선 생성
-        foreach (var position in keywordPositions)
+
+        Debug.Log($"[BezierCurveManager] Creating {keywordPositions.Count} curves+labels");
+
+        for (int i = 0; i < keywordPositions.Count; i++)
         {
-            // 풀에서 사용 가능한 곡선 가져오기
+            Vector3 endPos = keywordPositions[i];
+            var mapping = mappings[i];
+
+            // 1) 곡선 생성 (풀에서 가져오기)
             BezierCurveRenderer curve = GetCurveFromPool();
             if (curve == null)
             {
-                Debug.LogWarning("[BezierCurveManager] No more available curves in pool");
+                Debug.LogWarning("[BezierCurveManager] Curve pool empty");
                 continue;
             }
-            
-            // 타겟 포인트용 임시 GameObject 생성
+
+            // 2) 임시 타겟 포인트 (곡선 렌더러용)
             GameObject targetPoint = new GameObject("Keyword Target Point");
-            targetPoint.transform.position = position;
+            targetPoint.transform.position = endPos;
             targetPoint.transform.SetParent(curvesParent);
-            
-            // 베지어 곡선 설정
+
             curve.SetTargetTransforms(_sourceTransform, targetPoint.transform);
-            
-            // 활성 곡선 목록에 추가
             _activeCurves.Add(curve);
+
+            Vector3 dir = (endPos - _sourceTransform.position).normalized;
+            float   angle = baseAngle + labelSpreadAngle * i;
+            Vector3 rotatedDir = Quaternion.AngleAxis(angle, Vector3.up) * dir;
+            Vector3 labelPos   = _sourceTransform.position
+                                 + rotatedDir * labelForwardOffset
+                                 + Vector3.up     * labelVerticalOffset;
+
+            // 3) 테마 레이블 생성
+            if (mapping.labelPrefab != null)
+            {
+                // // 시작점 방향으로 살짝 띄워서 위치 계산
+                // Vector3 dir = (endPos - _sourceTransform.position).normalized;
+                // Vector3 labelPos = _sourceTransform.position
+                //                    + dir * 0.2f
+                //                    + Vector3.up * 0.1f;
+
+                GameObject labelObj = Instantiate(
+                    mapping.labelPrefab,
+                    labelPos,
+                    Quaternion.identity,
+                    curve.transform);
+
+                // 카메라 바라보게
+                if (Camera.main != null)
+                    labelObj.transform.LookAt(Camera.main.transform);
+
+                // Text 세팅 (TextMeshPro 우선, 없으면 TextMesh)
+                var tmp3D = labelObj.GetComponentInChildren<TMPro.TextMeshPro>();
+                if (tmp3D != null)
+                {
+                    tmp3D.text = mapping.themeLabel;
+                }
+                else
+                {
+                    // UI 텍스트 (TextMeshProUGUI) 찾기
+                    var tmpUI = labelObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+                    if (tmpUI != null)
+                        tmpUI.text = mapping.themeLabel;
+                    else
+                    {
+                        // 마지막으로 legacy TextMesh
+                        var legacy = labelObj.GetComponentInChildren<TextMesh>();
+                        if (legacy != null)
+                            legacy.text = mapping.themeLabel;
+                    }
+                }
+            }
         }
-        
-        Debug.Log($"[BezierCurveManager] Created {_activeCurves.Count} active bezier curves");
     }
     
     // 풀에서 사용 가능한 곡선 가져오기
@@ -127,20 +183,28 @@ public class BezierCurveManager : MonoBehaviour
         return null;
     }
     
-    // 모든 활성 곡선 비활성화
     public void ClearActiveCurves()
     {
         foreach (var curve in _activeCurves)
         {
             if (curve != null)
             {
+                // (1) curve GameObject 하위의 모든 child 오브젝트 삭제
+                //     (targetPoint, labelObj 등)
+                var children = new List<GameObject>();
+                foreach (Transform t in curve.transform)
+                    children.Add(t.gameObject);
+                foreach (var go in children)
+                    Destroy(go);
+
+                // (2) 곡선 숨기기 & 다시 풀로 돌려놓기
                 curve.HideCurve();
                 curve.gameObject.SetActive(false);
             }
         }
-        
         _activeCurves.Clear();
     }
+
     
     // 마커 표시 여부 설정
     public void SetMarkersVisibility(bool visible)

@@ -13,6 +13,9 @@ public class KeywordMapping
     public Color highlightColor = Color.green; // Color to highlight the keyword with
     [Tooltip("If true, will match partial words")]
     public bool partialMatch = false; // Whether to match partial words or exact phrases
+
+    public string themeLabel;            // ex: "CEO Comment"
+    public GameObject labelPrefab;
 }
 
 [System.Serializable]
@@ -181,27 +184,33 @@ public class KeywordDetector : MonoBehaviour
             return;
         }
 
-        // (기존 코드 일부를 재사용)
-        List<Vector3> worldPos = new();
+        var worldPos     = new List<Vector3>();
+        var mappingList  = new List<KeywordMapping>();
+
         foreach (var m in res.keywordMappings)
         {
-            Debug.Log($"[KeywordDetector] Visualizing keywords for texture: {tex.name}, keyword: {m.keyword}");
-            if (!res.detectedKeywordRects.TryGetValue(m.keyword, out var rects)) continue;
-
-            // log
-            Debug.Log($"rects: {rects.Count}");
+            if (!res.detectedKeywordRects.TryGetValue(m.keyword, out var rects))
+                continue;
 
             foreach (var r in rects)
             {
+                // 텍스처 → 월드 좌표
                 Vector3 wp = ConvertTextureToWorldPosition(
-                                r, viewRect, res.texWidth, res.texHeight);
+                    r, viewRect, res.texWidth, res.texHeight);
 
-                worldPos.Add(wp);                          // 베지어 등 전체 경로용
-                if (showMarkers) CreateMarkerForKeyword(m, wp);
+                worldPos.Add(wp);
+                mappingList.Add(m);
+
+                if (showMarkers)
+                    CreateMarkerForKeyword(m, wp);
             }
         }
-        if (bezierCurveManager && worldPos.Count > 0)
-            bezierCurveManager.CreateCurvesForKeywords(worldPos);
+
+        // 곡선 + 레이블 한 번에 생성
+        if (bezierCurveManager != null && worldPos.Count > 0)
+        {
+            bezierCurveManager.CreateCurvesForKeywords(worldPos, mappingList);
+        }
     }
     
     private Texture2D ConvertToTexture2D(Texture texture)
@@ -334,5 +343,4 @@ public class KeywordDetector : MonoBehaviour
 
         CacheKeywordRects(res);
     }
-
 }
