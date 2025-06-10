@@ -13,6 +13,7 @@ public class BezierCurveRenderer : MonoBehaviour
     private Vector3 _endPoint;
     private bool _useTransforms = true;
 
+    private Vector3 _p0, _p1, _p2, _p3;
 
     [Range(3, 100)]
     public int lineSegments = 50; // 곡선을 얼마나 많은 선분으로 나눌지 (부드러움 조절)
@@ -95,6 +96,11 @@ public class BezierCurveRenderer : MonoBehaviour
         // 제어점 P2: P3에서 P0쪽으로 약간 이동 후, bendOffset 만큼 이동 (같은 방향으로 휘게)
         Vector3 p2 = p3 - directionP0toP3 * (distance * 0.25f) + bendOffset;
 
+        _p0 = p0;
+        _p1 = p1;
+        _p2 = p2;
+        _p3 = p3;
+
         for (int i = 0; i <= lineSegments; i++)
         {
             float t = (float)i / lineSegments;
@@ -125,5 +131,25 @@ public class BezierCurveRenderer : MonoBehaviour
         p += 3 * u * tt * p2; // 3 * (1-t) * t^2 * P2
         p += ttt * p3;        // t^3 * P3
         return p;
+    }
+
+    /// <summary>
+    /// t에 따른 곡선 상의 좌표 반환
+    /// </summary>
+    public Vector3 GetPoint(float t)
+    {
+        return CalculateCubicBezierPoint(t, _p0, _p1, _p2, _p3);
+    }
+
+    /// <summary>
+    /// t에 따른 곡선의 접선 방향 반환
+    /// </summary>
+    public Vector3 GetTangent(float t)
+    {
+        float u = 1 - t;
+        Vector3 tangent = 3 * u * u * (_p1 - _p0)
+                        + 6 * u * t * (_p2 - _p1)
+                        + 3 * t * t * (_p3 - _p2);
+        return tangent.normalized;
     }
 }

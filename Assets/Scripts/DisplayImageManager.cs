@@ -1,50 +1,88 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using System.Linq;
 
 public class DisplayImageManager : MonoBehaviour
 {
-    [SerializeField] private RawImage[] displaySlots;   // 월드 공간 UI 슬롯
-    [SerializeField] private Texture2D defaultPlaceholder;  // 선택: 빈 슬롯용
+    [SerializeField] private RawImage[] displaySlots;
+    [SerializeField] private Texture2D defaultPlaceholder;
+
+    // 각 RawImage 슬롯이 어느 owner에게 쓰이고 있는지 추적
+    private readonly Dictionary<object, List<RawImage>> _ownerSlots
+        = new Dictionary<object, List<RawImage>>();
 
     /// <summary>
-    /// 텍스처를 슬롯에 배치하고, 실제로 활성화된 RawImage 배열을 반환한다.
+    /// owner별로 텍스처 슬롯을 할당합니다.
     /// </summary>
-    public RawImage[] SetDisplayImages(Texture2D[] textures)
+    public RawImage[] SetDisplayImages(object owner, Texture2D[] textures)
     {
-        List<RawImage> active = new();
-
-        int count = Mathf.Min(displaySlots.Length, textures.Length);
-
-        /* 1) 필요한 만큼 슬롯 활성화 + 텍스처 할당 ------------------ */
-        for (int i = 0; i < count; ++i)
+        // 1) 기존 owner 슬롯 해제
+        if (_ownerSlots.TryGetValue(owner, out var oldSlots))
         {
-            RawImage slot = displaySlots[i];
-            if (slot == null) continue;
+            foreach (var slot in oldSlots)
+                ReleaseSlot(slot);
+            _ownerSlots.Remove(owner);
+        }
 
-            slot.texture = textures[i];
+        // 2) 다른 owner들이 쓰는 슬롯 집합
+        var usedByOthers = _ownerSlots
+            .Values
+            .SelectMany(list => list)
+            .ToHashSet();
+
+        var assigned = new List<RawImage>();
+
+        // 3) 각 텍스처마다 빈 슬롯 고르기 (다른 owner + 이번에 할당된 것 모두 제외)
+        foreach (var tex in textures)
+        {
+            RawImage free = displaySlots
+                .FirstOrDefault(s =>
+                    !usedByOthers.Contains(s) &&
+                    !assigned.Contains(s));
+
+            if (free == null)
+            {
+                Debug.LogWarning("[DisplayImageManager] No free slots left!");
+                break;
+            }
+
+            free.texture = tex;
+            free.name    = $"OCR_IMG_{tex.GetInstanceID()}";
+            free.gameObject.SetActive(true);
+
+            assigned.Add(free);
+        }
+
+        // 4) 이 owner의 슬롯으로 기록 후 반환
+        _ownerSlots[owner] = assigned;
+        return assigned.ToArray();
+    }
+
+    /// <summary>
+    /// owner가 차지한 슬롯만 해제합니다.
+    /// </summary>
+    public void ClearDisplayImages(object owner)
+    {
+        if (!_ownerSlots.TryGetValue(owner, out var slots)) return;
+
+        foreach (var slot in slots)
+            ReleaseSlot(slot);
+
+        _ownerSlots.Remove(owner);
+    }
+
+    // 플레이스홀더 또는 꺼버리기
+    private void ReleaseSlot(RawImage slot)
+    {
+        if (defaultPlaceholder != null)
+        {
+            slot.texture = defaultPlaceholder;
             slot.gameObject.SetActive(true);
-            slot.name = $"OCR_IMG_{textures[i].GetInstanceID()}";
-            active.Add(slot);
         }
-
-        /* 2) 남은 슬롯은 끄거나 플레이스홀더 ---------------------- */
-        for (int i = count; i < displaySlots.Length; ++i)
+        else
         {
-            RawImage slot = displaySlots[i];
-            if (slot == null) continue;
-
-            if (defaultPlaceholder)
-            {
-                slot.texture = defaultPlaceholder;
-                slot.gameObject.SetActive(true);
-            }
-            else
-            {
-                slot.gameObject.SetActive(false);
-            }
+            slot.gameObject.SetActive(false);
         }
-
-        return active.ToArray();
     }
 }

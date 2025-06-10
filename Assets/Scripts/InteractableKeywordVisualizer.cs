@@ -28,6 +28,7 @@ public class InteractableKeywordVisualizer : MonoBehaviour
     private GameObject _highlightObject;
     private bool _isVisualizationActive = false;
     private KeywordMapping[] globalMappings;
+    private RawImage[] _currentSlots;
     
     private void Awake()
     {
@@ -207,6 +208,7 @@ public class InteractableKeywordVisualizer : MonoBehaviour
         {
             keywordDetector.ClearAllMarkers();
             if (bezierCurveManager) bezierCurveManager.ClearActiveCurves();
+            displayManager.ClearDisplayImages(this);
             return;
         }
 
@@ -214,13 +216,13 @@ public class InteractableKeywordVisualizer : MonoBehaviour
         Texture2D[] texArray = System.Array.ConvertAll(
             visualizations, v => v.texture);
 
-        RawImage[] rawImgs = displayManager.SetDisplayImages(texArray);
+        _currentSlots = displayManager.SetDisplayImages(this, texArray);
 
         // ② Texture 기준으로 시각화
-        for (int i = 0; i < rawImgs.Length; ++i)
+        for (int i = 0; i < _currentSlots.Length; ++i)
         {
             Texture2D tex = texArray[i];
-            RectTransform rect = rawImgs[i].rectTransform;
+            RectTransform rect = _currentSlots[i].rectTransform;
 
             keywordDetector.VisualizeKeywordsForTexture(tex, rect);
         }

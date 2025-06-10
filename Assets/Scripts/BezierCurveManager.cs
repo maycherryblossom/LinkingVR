@@ -10,9 +10,9 @@ public class BezierCurveManager : MonoBehaviour
     [SerializeField] private int initialPoolSize = 10;
     [SerializeField] private Transform curvesParent;
     [SerializeField] private bool showMarkers = false; // 디버깅용 마커 표시 여부
-    [SerializeField] private float labelForwardOffset = 5f;
-    [SerializeField] private float labelVerticalOffset = 0.1f;
-    [SerializeField] private float labelSpreadAngle   = 30f; // degree
+    [SerializeField] private float labelForwardOffset = 0.0001f;
+    [SerializeField] private float labelVerticalOffset = 0.0001f;
+    [SerializeField] private float labelSpreadAngle   = 1; // degree
     [SerializeField] private float baseAngle = 0f; // degree
     
     private List<BezierCurveRenderer> _curvePool = new List<BezierCurveRenderer>();
@@ -106,21 +106,33 @@ public class BezierCurveManager : MonoBehaviour
             curve.SetTargetTransforms(_sourceTransform, targetPoint.transform);
             _activeCurves.Add(curve);
 
-            Vector3 dir = (endPos - _sourceTransform.position).normalized;
-            float   angle = baseAngle + labelSpreadAngle * i;
-            Vector3 rotatedDir = Quaternion.AngleAxis(angle, Vector3.up) * dir;
-            Vector3 labelPos   = _sourceTransform.position
-                                 + rotatedDir * labelForwardOffset
-                                 + Vector3.up     * labelVerticalOffset;
+            // Vector3 dir = (endPos - _sourceTransform.position).normalized;
+            // float   angle = baseAngle + labelSpreadAngle * i;
+            // Vector3 rotatedDir = Quaternion.AngleAxis(angle, Vector3.up) * dir;
+            // Vector3 labelPos   = _sourceTransform.position
+            //                      + rotatedDir * labelForwardOffset
+            //                      + Vector3.up     * labelVerticalOffset;
 
             // 3) 테마 레이블 생성
             if (mapping.labelPrefab != null)
             {
-                // // 시작점 방향으로 살짝 띄워서 위치 계산
                 // Vector3 dir = (endPos - _sourceTransform.position).normalized;
+                Vector3 toCam  = (Camera.main.transform.position - _sourceTransform.position).normalized;
                 // Vector3 labelPos = _sourceTransform.position
                 //                    + dir * 0.2f
-                //                    + Vector3.up * 0.1f;
+                //                    + toCam * 0.15f
+                //                    + Vector3.up * 0.03f;
+
+                float t = 0.2f;
+                Vector3 pointOnCurve = curve.GetPoint(t);
+                Vector3 tangent      = curve.GetTangent(t).normalized;
+                Vector3 perpSide     = Vector3.Cross(Vector3.up, tangent).normalized;
+
+                Vector3 labelPos = pointOnCurve
+                 + tangent * 0.2f
+                 + perpSide * 0.15f
+                 + Vector3.up * 0.03f
+                 + toCam * 0.12f;
 
                 GameObject labelObj = Instantiate(
                     mapping.labelPrefab,
