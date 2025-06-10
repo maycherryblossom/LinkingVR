@@ -8693,13 +8693,9 @@ MonoBehaviour:
   visualizations:
   - texture: {fileID: 2800000, guid: c8c381cb783d868418e6b0ab86c10a23, type: 3}
     keywordMappings:
-    - keyword: Pandemic
+    - keyword: Amazon Web
       markerPrefab: {fileID: 798714924}
       highlightColor: {r: 0.8663082, g: 1, b: 0.25943398, a: 0}
-      partialMatch: 0
-    - keyword: vaccination
-      markerPrefab: {fileID: 798714924}
-      highlightColor: {r: 0.9344351, g: 1, b: 0.41037738, a: 0}
       partialMatch: 0
   - texture: {fileID: 2800000, guid: bdcf00412df5dde4f8a57ddf7f773c4c, type: 3}
     keywordMappings:
@@ -8853,8 +8849,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 2.2357988}
-  m_Center: {x: 0, y: 0, z: -0.016403198}
+  m_Size: {x: 1.4024359, y: 1.7433125, z: 2.9881701}
+  m_Center: {x: 0.20121822, y: 0.37165612, z: -0.3925897}
 --- !u!4 &946574000
 Transform:
   m_ObjectHideFlags: 0
@@ -8863,14 +8859,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 946573994}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0.14346589, z: -0, w: 0.98965526}
-  m_LocalPosition: {x: 2.0468, y: 1.2994, z: 1.1941}
-  m_LocalScale: {x: 0.05, y: 0.05, z: 0.05}
+  m_LocalRotation: {x: -0, y: 0.99096006, z: -0, w: 0.13415734}
+  m_LocalPosition: {x: 0.31171775, y: 3.9253798, z: 6.213351}
+  m_LocalScale: {x: 0.04999999, y: 0.05, z: 0.04999999}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 194539678}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: -16.497, z: 0}
+  m_Father: {fileID: 2089966060}
+  m_LocalEulerAnglesHint: {x: 0, y: 93.117, z: 0}
 --- !u!1001 &966116706
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10063,7 +10059,7 @@ Transform:
   m_GameObject: {fileID: 1070286106}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.26360354, z: -0, w: 0.9646311}
-  m_LocalPosition: {x: 1.4052289, y: -4.41, z: 1.4074132}
+  m_LocalPosition: {x: 1.4052289, y: -4.41, z: 0.1204046}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -11179,14 +11175,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1150711507}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0.14346589, z: -0, w: 0.98965526}
-  m_LocalPosition: {x: 2.0468, y: 2.24, z: 1.1941}
-  m_LocalScale: {x: 0.05, y: 0.05, z: 0.05}
+  m_LocalRotation: {x: -0, y: -0.19775987, z: -0, w: 0.98025054}
+  m_LocalPosition: {x: 0.28455758, y: 4.8923798, z: 6.3832774}
+  m_LocalScale: {x: 0.049999997, y: 0.05, z: 0.049999997}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 598274421}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: -16.497, z: 0}
+  m_Father: {fileID: 2089966060}
+  m_LocalEulerAnglesHint: {x: 0, y: -94.275, z: 0}
 --- !u!65 &1150711510
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -11206,8 +11202,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 2.2357988}
-  m_Center: {x: 0, y: 0, z: -0.016403198}
+  m_Size: {x: 1, y: 1.9277936, z: 2.6595244}
+  m_Center: {x: 6.850178e-10, y: 0.4638967, z: -0.22826573}
 --- !u!114 &1150711511
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11284,7 +11280,7 @@ MonoBehaviour:
   keywordDetector: {fileID: 500776686}
   highlightMaterial: {fileID: 0}
   highlightAlpha: 0.5
-  highlightColor: {r: 0.7316663, g: 1, b: 0, a: 0.1764706}
+  highlightColor: {r: 0.7316663, g: 1, b: 0, a: 0.08627451}
   bezierCurveManager: {fileID: 1021074454}
   displayManager: {fileID: 1548205995}
 --- !u!114 &1150711514
@@ -13888,7 +13884,7 @@ Transform:
   m_GameObject: {fileID: 1409769691}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.09150958, z: -0, w: 0.99580425}
-  m_LocalPosition: {x: -2.3380675, y: -4.193, z: 1.5298159}
+  m_LocalPosition: {x: -2.3380675, y: -4.193, z: 0.24280727}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -18566,11 +18562,13 @@ Transform:
   m_GameObject: {fileID: 2089966059}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.5839878, z: -0, w: 0.81176245}
-  m_LocalPosition: {x: 6.311854, y: -2.6553798, z: 1.4810086}
+  m_LocalPosition: {x: 6.311854, y: -2.6553798, z: 0.194}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1172010780}
+  - {fileID: 1150711509}
+  - {fileID: 946574000}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: -71.463, z: 0}
 --- !u!1 &2108971333
@@ -18897,8 +18895,6 @@ SceneRoots:
   - {fileID: 1208880103}
   - {fileID: 500776687}
   - {fileID: 657625346}
-  - {fileID: 1150711509}
-  - {fileID: 946574000}
   - {fileID: 2141459150}
   - {fileID: 1329267154}
   - {fileID: 1021074455}

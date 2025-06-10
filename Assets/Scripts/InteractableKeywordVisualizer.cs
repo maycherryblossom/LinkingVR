@@ -164,38 +164,14 @@ public class InteractableKeywordVisualizer : MonoBehaviour
             }
             
             _highlightRenderer.material = new Material(shader);
-            
-            // Configure the material based on shader type
-            if (shader.name.Contains("Universal"))
-            {
-                // URP shader setup
-                _highlightRenderer.material.SetFloat("_Surface", 1); // 0 = opaque, 1 = transparent
-                _highlightRenderer.material.SetFloat("_Blend", 0); // 0 = alpha, 1 = premultiply, 2 = additive, 3 = multiply
-                _highlightRenderer.material.SetFloat("_ZWrite", 0); // 0 = disable depth write
-                _highlightRenderer.material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-                _highlightRenderer.material.renderQueue = 3000;
-            }
-            else if (shader.name.Contains("Standard"))
-            {
-                // Standard shader setup
-                _highlightRenderer.material.SetFloat("_Mode", 3); // Transparent mode
-                _highlightRenderer.material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                _highlightRenderer.material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                _highlightRenderer.material.SetInt("_ZWrite", 0);
-                _highlightRenderer.material.DisableKeyword("_ALPHATEST_ON");
-                _highlightRenderer.material.EnableKeyword("_ALPHABLEND_ON");
-                _highlightRenderer.material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                _highlightRenderer.material.renderQueue = 3000;
-            }
+
+            Color c = highlightColor;    // 인스펙터에서 고른 색 (RGB)
+            c.a = highlightAlpha;        // 투명도(0–1)
+            _highlightRenderer.material.SetColor("_BaseColor", c);   // 핵심!
             
 
         }
         
-        Color c = highlightColor;          // 인스펙터에서 고른 색
-        c.a = highlightAlpha;              // 별도 알파 값 적용(0~1) - 필요 없으면 삭제
-        _highlightRenderer.material.color = c;  
-                
-        // Initially hide the highlight
         _highlightObject.SetActive(false);
     }
     
