@@ -26,10 +26,11 @@ public class InteractableKeywordVisualizer : MonoBehaviour
     private XRSimpleInteractable _interactable;
     private MeshRenderer _highlightRenderer;
     private GameObject _highlightObject;
-    private bool _isVisualizationActive = false;
     private KeywordMapping[] globalMappings;
     private RawImage[] _currentSlots;
-    
+    private bool _isVisualizationActive = false;
+    private Texture2D[] _texArray;
+
     private void Awake()
     {
         _interactable = GetComponent<XRSimpleInteractable>();
@@ -200,28 +201,30 @@ public class InteractableKeywordVisualizer : MonoBehaviour
     
     private void OnSelectEntered(SelectEnterEventArgs args)
     {
-        bool activate = !_isVisualizationActive;
-        _isVisualizationActive = activate;
+        _isVisualizationActive = !_isVisualizationActive;
         if (bezierCurveManager) bezierCurveManager.SetSourcePoint(transform);
 
-        if (!activate)
+        if (!_isVisualizationActive)
         {
-            keywordDetector.ClearAllMarkers();
-            if (bezierCurveManager) bezierCurveManager.ClearActiveCurves();
+            // keywordDetector.ClearAllMarkers();
+            // if (bezierCurveManager) bezierCurveManager.ClearActiveCurves();
+            // displayManager.ClearDisplayImages(this);
+            foreach (var tex in _texArray)
+                bezierCurveManager.ClearCurvesForTexture(tex);
             displayManager.ClearDisplayImages(this);
             return;
         }
 
         // ① 텍스처 배열 추려서 RawImage 로 표시
-        Texture2D[] texArray = System.Array.ConvertAll(
+        _texArray = System.Array.ConvertAll(
             visualizations, v => v.texture);
 
-        _currentSlots = displayManager.SetDisplayImages(this, texArray);
+        _currentSlots = displayManager.SetDisplayImages(this, _texArray);
 
         // ② Texture 기준으로 시각화
         for (int i = 0; i < _currentSlots.Length; ++i)
         {
-            Texture2D tex = texArray[i];
+            Texture2D tex = _texArray[i];
             RectTransform rect = _currentSlots[i].rectTransform;
 
             keywordDetector.VisualizeKeywordsForTexture(tex, rect);
