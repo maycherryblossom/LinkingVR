@@ -206,10 +206,12 @@ public class KeywordDetector : MonoBehaviour
             }
         }
 
-        // 곡선 + 레이블 한 번에 생성
         if (bezierCurveManager != null && worldPos.Count > 0)
         {
-            bezierCurveManager.CreateCurvesForKeywords(worldPos, mappingList);
+            bezierCurveManager.CreateCurvesForKeywords(
+                /* owner key */ tex,
+                worldPos,
+                mappingList);
         }
     }
     

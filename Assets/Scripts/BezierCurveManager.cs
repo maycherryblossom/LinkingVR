@@ -18,6 +18,8 @@ public class BezierCurveManager : MonoBehaviour
     private List<BezierCurveRenderer> _curvePool = new List<BezierCurveRenderer>();
     private List<BezierCurveRenderer> _activeCurves = new List<BezierCurveRenderer>();
     private Transform _sourceTransform; // 선택된 콜라이더의 Transform
+    private Dictionary<Texture2D, List<BezierCurveRenderer>> _textureCurves
+        = new Dictionary<Texture2D, List<BezierCurveRenderer>>();
     
     private void Awake()
     {
@@ -66,11 +68,13 @@ public class BezierCurveManager : MonoBehaviour
     }
     
     public void CreateCurvesForKeywords(
+        Texture2D tex,
         List<Vector3> keywordPositions,
         List<KeywordMapping> mappings)
     {
         // 이전 활성 곡선 정리
         // ClearActiveCurves();
+        ClearCurvesForTexture(tex);
 
         if (_sourceTransform == null
             || keywordPositions == null
@@ -84,6 +88,8 @@ public class BezierCurveManager : MonoBehaviour
         }
 
         Debug.Log($"[BezierCurveManager] Creating {keywordPositions.Count} curves+labels");
+
+        var created = new List<BezierCurveRenderer>();
 
         for (int i = 0; i < keywordPositions.Count; i++)
         {
@@ -104,7 +110,11 @@ public class BezierCurveManager : MonoBehaviour
             targetPoint.transform.SetParent(curvesParent);
 
             curve.SetTargetTransforms(_sourceTransform, targetPoint.transform);
+            Vector3 startPoint = GetSourceWorldPoint();
+            curve.DrawCurve(startPoint, endPos);
+
             _activeCurves.Add(curve);
+            created.Add(curve);
 
             // Vector3 dir = (endPos - _sourceTransform.position).normalized;
             // float   angle = baseAngle + labelSpreadAngle * i;
@@ -166,6 +176,8 @@ public class BezierCurveManager : MonoBehaviour
                 }
             }
         }
+
+        _textureCurves[tex] = created;
     }
     
     // 풀에서 사용 가능한 곡선 가져오기
@@ -193,6 +205,26 @@ public class BezierCurveManager : MonoBehaviour
         }
         
         return null;
+    }
+
+    /// <summary>
+    /// 특정 텍스처에 대응하는 곡선만 지우고 비활성화합니다.
+    /// </summary>
+    public void ClearCurvesForTexture(Texture2D tex)
+    {
+        if (!_textureCurves.TryGetValue(tex, out var list)) return;
+        foreach (var curve in list)
+        {
+            if (curve == null) continue;
+            // 자식(타겟포인트/레이블) 먼저 제거
+            foreach (Transform t in curve.transform)
+                Destroy(t.gameObject);
+            // 곡선 숨기고 풀로 돌려놓기
+            curve.HideCurve();
+            curve.gameObject.SetActive(false);
+            _activeCurves.Remove(curve);
+        }
+        _textureCurves.Remove(tex);
     }
     
     public void ClearActiveCurves()
@@ -228,5 +260,13 @@ public class BezierCurveManager : MonoBehaviour
     public bool ShouldShowMarkers()
     {
         return showMarkers;
+    }
+
+    Vector3 GetSourceWorldPoint()
+    {
+        if (_sourceTransform.TryGetComponent<Collider>(out var col))
+            return col.bounds.center;      // 콜라이더의 월드 중심
+        else
+            return _sourceTransform.position;  // fallback
     }
 }
