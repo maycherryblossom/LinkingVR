@@ -57,7 +57,7 @@ LineRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 4bbc3b52f4d5ce540965d630f2113c59, type: 2}
+  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -157,3 +157,5 @@ MonoBehaviour:
   lineSegments: 50
   controlPointOffsetFactor: 0.5
   bendDirectionReference: {x: 0, y: 1, z: 0}
+  fadeStartColor: {r: 0.2783019, g: 0.7081779, b: 1, a: 1}
+  fadeEndAlpha: 0

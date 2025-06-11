@@ -24,11 +24,34 @@ public class BezierCurveRenderer : MonoBehaviour
     // 곡선이 어느 축을 기준으로 주로 휘어질지 (예: 카메라 위쪽, 월드 위쪽 등)
     public Vector3 bendDirectionReference = Vector3.up;
 
+    [Header("Fade Settings")]
+    [SerializeField]
+    private Color fadeStartColor = Color.white;
+    [SerializeField]
+    private float fadeEndAlpha = 0f;
+
 
     void Awake()
     {
         lineRenderer = GetComponent<LineRenderer>();
         lineRenderer.positionCount = 0; // 처음에는 보이지 않게
+        SetupFadeGradient();
+    }
+
+    private void SetupFadeGradient()
+    {
+        Gradient gradient = new Gradient();
+        gradient.SetKeys(
+            new GradientColorKey[] {
+                new GradientColorKey(fadeStartColor, 0f),
+                new GradientColorKey(fadeStartColor, 1f)
+            },
+            new GradientAlphaKey[] {
+                new GradientAlphaKey(1f, 0f),
+                new GradientAlphaKey(fadeEndAlpha, 1f)
+            }
+        );
+        lineRenderer.colorGradient = gradient;
     }
 
     void Update()
