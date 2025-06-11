@@ -14,6 +14,7 @@ public class BezierCurveManager : MonoBehaviour
     [SerializeField] private float labelVerticalOffset = 0.0001f;
     [SerializeField] private float labelSpreadAngle   = 1; // degree
     [SerializeField] private float baseAngle = 0f; // degree
+    [SerializeField] private float sideBase    = 0.1f;    // 측면으로 얼마나
     
     private List<BezierCurveRenderer> _curvePool = new List<BezierCurveRenderer>();
     private List<BezierCurveRenderer> _activeCurves = new List<BezierCurveRenderer>();
@@ -91,6 +92,8 @@ public class BezierCurveManager : MonoBehaviour
 
         var created = new List<BezierCurveRenderer>();
 
+        float t = 0.1f;
+        int count = keywordPositions.Count;
         for (int i = 0; i < keywordPositions.Count; i++)
         {
             Vector3 endPos = keywordPositions[i];
@@ -132,17 +135,19 @@ public class BezierCurveManager : MonoBehaviour
                 //                    + dir * 0.2f
                 //                    + toCam * 0.15f
                 //                    + Vector3.up * 0.03f;
-
-                float t = 0.2f;
                 Vector3 pointOnCurve = curve.GetPoint(t);
                 Vector3 tangent      = curve.GetTangent(t).normalized;
                 Vector3 perpSide     = Vector3.Cross(Vector3.up, tangent).normalized;
+                float sideOffset = (i - (count-1)*0.5f) * sideBase;
+                Vector3 sideDirection = sideOffset >= 0
+                    ? Vector3.Cross(tangent, Vector3.up).normalized  // 오른쪽
+                    : Vector3.Cross(Vector3.up, tangent).normalized; // 왼쪽
 
                 Vector3 labelPos = pointOnCurve
-                 + tangent * 0.2f
-                 + perpSide * 0.15f
+                 + tangent * 0.1f
+                 + sideDirection * Mathf.Abs(sideOffset)
                  + Vector3.up * 0.03f
-                 + toCam * 0.12f;
+                 + toCam * 0.1f;
 
                 GameObject labelObj = Instantiate(
                     mapping.labelPrefab,
@@ -175,6 +180,7 @@ public class BezierCurveManager : MonoBehaviour
                     }
                 }
             }
+            t += 0.2f;
         }
 
         _textureCurves[tex] = created;
